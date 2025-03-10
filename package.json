@@ -1,14 +1,21 @@
 {
-  "name": "hardhat-project",
+  "name": "@cryptoalgebra/alm-vault",
+  "version": "1.0.8",
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "hardhat": "^2.22.19"
   },
   "dependencies": {
-    "@cryptoalgebra/v1-core": "^1.0.0",
-    "@cryptoalgebra/v1-periphery": "^1.0.1",
-    "@openzeppelin/contracts": "^3.4.0",
-    "@uniswap/v3-core": "^1.0.1",
-    "@uniswap/v3-periphery": "^1.4.4"
-  }
+    "@cryptoalgebra/integral-core": "^1.2.0",
+    "@cryptoalgebra/integral-periphery": "^1.2.0",
+    "@openzeppelin/contracts": "4.9.3"
+  },
+  "files": [
+    "contracts",
+    "!contracts/test",
+    "artifacts/contracts/**/*.json",
+    "!artifacts/contracts/**/*.dbg.json",
+    "!artifacts/contracts/test/**/*",
+    "!artifacts/contracts/base/**/*"
+  ]
 }

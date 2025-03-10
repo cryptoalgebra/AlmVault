@@ -1,19 +1,23 @@
 // SPDX-License-Identifier: BUSL-1.1
 
-pragma solidity 0.7.6;
+pragma solidity >=0.8.4;
 
-import {SafeMath} from "@openzeppelin/contracts/math/SafeMath.sol";
+import {SafeMath} from "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {UV3Math} from "./libraries/UV3Math.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-import {IAlgebraMintCallback} from "@cryptoalgebra/v1-core/contracts/interfaces/callback/IAlgebraMintCallback.sol";
-import {IAlgebraSwapCallback} from "@cryptoalgebra/v1-core/contracts/interfaces/callback/IAlgebraSwapCallback.sol";
-import {IAlgebraPool} from "@cryptoalgebra/v1-core/contracts/interfaces/IAlgebraPool.sol";
-import {IDataStorageOperator} from "@cryptoalgebra/v1-core/contracts/interfaces/IDataStorageOperator.sol";
+import {IAlgebraMintCallback} from "@cryptoalgebra/integral-core/contracts/interfaces/callback/IAlgebraMintCallback.sol";
+import {IAlgebraSwapCallback} from "@cryptoalgebra/integral-core/contracts/interfaces/callback/IAlgebraSwapCallback.sol";
+import {IAlgebraPool} from "@cryptoalgebra/integral-core/contracts/interfaces/IAlgebraPool.sol";
+// TODO: поменять на нормальные интерфейсы
+import {IAlgebraPluginFactory} from "./interfaces/IAlgebraPluginFactory.sol";
+import {IVolatilityOracle} from "./interfaces/IVolatilityOracle.sol";
+
+// import {IDataStorageOperator} from "@cryptoalgebra/integral-/contracts/interfaces/IDataStorageOperator.sol";
 
 import {IAlmVault} from "./interfaces/IAlmVault.sol";
 import {IAlmVaultFactory} from "./interfaces/IAlmVaultFactory.sol";
@@ -36,6 +40,7 @@ contract AlmVault is
     using SafeMath for uint256;
 
     address public immutable override almVaultFactory;
+    address public immutable override pluginFatory;
     address public immutable override pool;
     address public immutable override token0;
     address public immutable override token1;
@@ -87,6 +92,7 @@ contract AlmVault is
      @param _vaultIndex index of the vault in the factory
      */
     constructor(
+        address _pluginFactory,
         address _pool,
         bool _allowToken0,
         bool _allowToken1,
@@ -97,6 +103,7 @@ contract AlmVault is
         require(_pool != NULL_ADDRESS, "IV.constructor: zero address");
         require(_allowToken0 || _allowToken1, 'IV.constructor: no allowed tokens');
 
+        pluginFatory = _pluginFactory;
         almVaultFactory = msg.sender;
         pool = _pool;
         token0 = IAlgebraPool(_pool).token0();
@@ -110,8 +117,8 @@ contract AlmVault is
 
         maxTotalSupply = 0; // no cap
         hysteresis = PRECISION.div(PERCENT); // 1% threshold
-        deposit0Max = uint256(-1); // max uint256
-        deposit1Max = uint256(-1); // max uint256
+        deposit0Max = type(uint256).max; // max uint256
+        deposit1Max = type(uint256).max; // max uint256
         ammFeeRecipient = NULL_ADDRESS; // by default there is no amm fee recipient address;
         affiliate = NULL_ADDRESS; // by default there is no affiliate address
         emit DeployAlmVault(
@@ -156,15 +163,15 @@ contract AlmVault is
         require(to != NULL_ADDRESS && to != address(this), "IV.deposit: to");
 
         // update fees for inclusion in total pool amounts
-        (uint128 baseLiquidity, , ) = _position(baseLower, baseUpper);
+        (uint256 baseLiquidity, , ) = _position(baseLower, baseUpper);
         if (baseLiquidity > 0) {
-            (uint burn0, uint burn1) = IAlgebraPool(pool).burn(baseLower, baseUpper, 0);
+            (uint burn0, uint burn1) = IAlgebraPool(pool).burn(baseLower, baseUpper, 0, '');
             require(burn0 == 0 && burn1 == 0, "IV.deposit: unexpected burn (1)");
         }
 
-        (uint128 limitLiquidity, , ) = _position(limitLower, limitUpper);
+        (uint256 limitLiquidity, , ) = _position(limitLower, limitUpper);
         if (limitLiquidity > 0) {
-            (uint burn0, uint burn1) = IAlgebraPool(pool).burn(limitLower, limitUpper, 0);
+            (uint burn0, uint burn1) = IAlgebraPool(pool).burn(limitLower, limitUpper, 0, '');
             require(burn0 == 0 && burn1 == 0, "IV.deposit: unexpected burn (2)");
         }
 
@@ -311,13 +318,13 @@ contract AlmVault is
         require(_baseLower != _limitLower || _baseUpper != _limitUpper, "IV.rebalance: identical positions");
 
         // update fees
-        (uint128 baseLiquidity, , ) = _position(baseLower, baseUpper);
+        (uint256 baseLiquidity, , ) = _position(baseLower, baseUpper);
         if (baseLiquidity > 0) {
-            IAlgebraPool(pool).burn(baseLower, baseUpper, 0);
+            IAlgebraPool(pool).burn(baseLower, baseUpper, 0, '');
         }
-        (uint128 limitLiquidity, , ) = _position(limitLower, limitUpper);
+        (uint256 limitLiquidity, , ) = _position(limitLower, limitUpper);
         if (limitLiquidity > 0) {
-            IAlgebraPool(pool).burn(limitLower, limitUpper, 0);
+            IAlgebraPool(pool).burn(limitLower, limitUpper, 0, '');
         }
 
         // Withdraw all liquidity and collect all fees from Uniswap pool
@@ -336,14 +343,14 @@ contract AlmVault is
         _burnLiquidity(
             baseLower,
             baseUpper,
-            baseLiquidity,
+            uint128(baseLiquidity),
             address(this),
             true
         );
         _burnLiquidity(
             limitLower,
             limitUpper,
-            limitLiquidity,
+            uint128(limitLiquidity),
             address(this),
             true
         );
@@ -380,7 +387,7 @@ contract AlmVault is
             IERC20(token0).balanceOf(address(this)),
             IERC20(token1).balanceOf(address(this))
         );
-        _mintLiquidity(baseLower, baseUpper, baseLiquidity);
+        _mintLiquidity(baseLower, baseUpper, uint128(baseLiquidity));
 
         limitLower = _limitLower;
         limitUpper = _limitUpper;
@@ -390,7 +397,7 @@ contract AlmVault is
             IERC20(token0).balanceOf(address(this)),
             IERC20(token1).balanceOf(address(this))
         );
-        _mintLiquidity(limitLower, limitUpper, limitLiquidity);
+        _mintLiquidity(limitLower, limitUpper, uint128(limitLiquidity));
     }
 
     /**
@@ -399,7 +406,7 @@ contract AlmVault is
      @return fees1 collected token1 fees
      */
     function collectFees() external override nonReentrant returns(uint256 fees0, uint256 fees1) {
-        (uint128 baseLiquidity, , ) = _position(baseLower, baseUpper);
+        (uint256 baseLiquidity, , ) = _position(baseLower, baseUpper);
         if (baseLiquidity > 0) {
             (uint256 fee0, uint256 fee1) = _burnAnyLiquidity(
                 baseLower,
@@ -411,7 +418,7 @@ contract AlmVault is
             fees0 = fees0.add(fee0);
             fees1 = fees1.add(fee1);
         }
-        (uint128 limitLiquidity, , ) = _position(limitLower, limitUpper);
+        (uint256 limitLiquidity, , ) = _position(limitLower, limitUpper);
         if (limitLiquidity > 0) {
             (uint256 fee0, uint256 fee1) = _burnAnyLiquidity(
                 limitLower,
@@ -553,7 +560,8 @@ contract AlmVault is
         (uint256 owed0, uint256 owed1) = IAlgebraPool(pool).burn(
             tickLower,
             tickUpper,
-            liquidity
+            liquidity,
+            ''
         );
 
         // Collect amount owed
@@ -585,7 +593,7 @@ contract AlmVault is
         int24 tickUpper,
         uint256 shares
     ) internal view returns (uint128) {
-        (uint128 position, , ) = _position(tickLower, tickUpper);
+        (uint256 position, , ) = _position(tickLower, tickUpper);
         return _uint128Safe(uint256(position).mul(shares).div(totalSupply()));
     }
 
@@ -611,8 +619,12 @@ contract AlmVault is
         assembly {
             positionKey := or(shl(24, or(shl(24, owner), and(tickLower, 0xFFFFFF))), and(tickUpper, 0xFFFFFF))
         }
-        (liquidity, , , , tokensOwed0, tokensOwed1) = IAlgebraPool(pool)
+
+        (uint256 _liquidity, , , uint128 _tokensOwed0, uint128 _tokensOwed1) = IAlgebraPool(pool)
             .positions(positionKey);
+        liquidity = uint128(_liquidity);
+        tokensOwed0 = _tokensOwed0;
+        tokensOwed1 = _tokensOwed1;
     }
 
     /**
@@ -683,9 +695,13 @@ contract AlmVault is
      @notice Checks if the last price change happened in the current block
      */
     function checkHysteresis() private view returns(bool) {
-        (, , , uint16 timepointIndex, , , ) = IAlgebraPool(pool).globalState();
-        address dataStorageOperator = IAlgebraPool(pool).dataStorageOperator();
-        (, uint32 blockTimestamp, , , , ,) = IDataStorageOperator(dataStorageOperator).timepoints(timepointIndex);
+        address plugin = IAlgebraPluginFactory(pluginFatory).pluginByPool(pool);
+
+        // (, , , uint16 timepointIndex, , , ) = IAlgebraPool(pool).globalState();
+        // address dataStorageOperator = IAlgebraPool(pool).dataStorageOperator();
+        // (, uint32 blockTimestamp, , , , ,) = IDataStorageOperator(dataStorageOperator).timepoints(timepointIndex);
+        uint16 timepointIndex = IVolatilityOracle(plugin).timepointIndex();
+        (, uint32 blockTimestamp, , , , ,) = IVolatilityOracle(plugin).timepoints(timepointIndex);
         return( block.timestamp != blockTimestamp );
     }
 
@@ -694,7 +710,7 @@ contract AlmVault is
      @return fee_ current fee in the pool
      */
     function fee() external override view returns(uint24 fee_) {
-        (, , fee_, , , , ) = IAlgebraPool(pool).globalState();
+        (, , fee_, , , ) = IAlgebraPool(pool).globalState();
     }
 
     /**
@@ -764,7 +780,7 @@ contract AlmVault is
         int24 tickUpper,
         uint128 liquidity
     ) internal view returns (uint256, uint256) {
-        (uint160 sqrtRatioX96, , , , , , ) = IAlgebraPool(pool).globalState();
+        (uint160 sqrtRatioX96, , , , , ) = IAlgebraPool(pool).globalState();
         return
             UV3Math.getAmountsForLiquidity(
                 sqrtRatioX96,
@@ -787,7 +803,7 @@ contract AlmVault is
         uint256 amount0,
         uint256 amount1
     ) internal view returns (uint128) {
-        (uint160 sqrtRatioX96, , , , , , ) = IAlgebraPool(pool).globalState();
+        (uint160 sqrtRatioX96, , , , , ) = IAlgebraPool(pool).globalState();
         return
             UV3Math.getLiquidityForAmounts(
                 sqrtRatioX96,
@@ -834,7 +850,7 @@ contract AlmVault is
         public
         view
         returns (
-            uint128 liquidity,
+            uint256 liquidity,
             uint256 amount0,
             uint256 amount1
         )
@@ -879,7 +895,7 @@ contract AlmVault is
             limitUpper,
             positionLiquidity
         );
-        liquidity = positionLiquidity;
+        liquidity = uint128(positionLiquidity);
         amount0 = amount0.add(uint256(tokensOwed0));
         amount1 = amount1.add(uint256(tokensOwed1));
     }
@@ -889,7 +905,7 @@ contract AlmVault is
      @return tick Uniswap pool's current price tick
      */
     function currentTick() public view returns (int24 tick) {
-        (, int24 tick_, , , , , bool unlocked_) = IAlgebraPool(pool).globalState();
+        (, int24 tick_, , , , bool unlocked_) = IAlgebraPool(pool).globalState();
         require(unlocked_, "IV.currentTick: the pool is locked");
         tick = tick_;
     } 

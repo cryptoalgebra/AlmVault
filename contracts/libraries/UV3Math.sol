@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: BUSL-1.1
 
-pragma solidity 0.7.6;
+pragma solidity >=0.8.4;
 
-import {TickMath} from "@cryptoalgebra/v1-core/contracts/libraries/TickMath.sol";
-import {LiquidityAmounts} from "@cryptoalgebra/v1-periphery/contracts/libraries/LiquidityAmounts.sol";
-import {DataStorageLibrary} from "@cryptoalgebra/v1-periphery/contracts/libraries/DataStorageLibrary.sol";
+import {TickMath} from "@cryptoalgebra/integral-core/contracts/libraries/TickMath.sol";
+import {LiquidityAmounts} from "@cryptoalgebra/integral-periphery/contracts/libraries/LiquidityAmounts.sol";
+import {OracleLibrary} from "./OracleLibrary.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 library UV3Math {
@@ -20,7 +20,7 @@ library UV3Math {
     
     function getSqrtRatioAtTick(
         int24 currentTick
-    ) public pure returns(uint160 sqrtPriceX96) {
+    ) internal pure returns(uint160 sqrtPriceX96) {
         sqrtPriceX96 = TickMath.getSqrtRatioAtTick(currentTick);
     }
 
@@ -33,7 +33,7 @@ library UV3Math {
         uint160 sqrtRatioAX96,
         uint160 sqrtRatioBX96,
         uint128 liquidity
-    ) public pure returns (uint256 amount0, uint256 amount1) {
+    ) internal pure returns (uint256 amount0, uint256 amount1) {
         (amount0, amount1) = LiquidityAmounts.getAmountsForLiquidity(
             sqrtRatioX96,
             sqrtRatioAX96,
@@ -47,7 +47,7 @@ library UV3Math {
         uint160 sqrtRatioBX96,
         uint256 amount0,
         uint256 amount1
-    ) public pure returns (uint128 liquidity) {
+    ) internal pure returns (uint128 liquidity) {
         liquidity = LiquidityAmounts.getLiquidityForAmounts(
             sqrtRatioX96,
             sqrtRatioAX96,
@@ -63,8 +63,8 @@ library UV3Math {
     function consult(
         address _pool, 
         uint32 _twapPeriod
-    ) public view returns(int24 timeWeightedAverageTick) {
-        timeWeightedAverageTick = DataStorageLibrary.consult(_pool, _twapPeriod);
+    ) internal view returns(int24 timeWeightedAverageTick) {
+        timeWeightedAverageTick = OracleLibrary.consult(_pool, _twapPeriod);
     }
 
     function getQuoteAtTick(
@@ -72,8 +72,8 @@ library UV3Math {
         uint128 baseAmount,
         address baseToken,
         address quoteToken
-    ) public pure returns (uint256 quoteAmount) {
-        quoteAmount = DataStorageLibrary.getQuoteAtTick(tick, baseAmount, baseToken, quoteToken);
+    ) internal pure returns (uint256 quoteAmount) {
+        quoteAmount = OracleLibrary.getQuoteAtTick(tick, baseAmount, baseToken, quoteToken);
     }
 
     /*******************
@@ -83,7 +83,7 @@ library UV3Math {
     /// @notice Cast a uint256 to a uint128, revert on overflow
     /// @param y The uint256 to be downcasted
     /// @return z The downcasted integer, now type uint128
-    function toUint128(uint256 y) public  pure returns (uint128 z) {
+    function toUint128(uint256 y) internal  pure returns (uint128 z) {
         require((z = uint128(y)) == y, "SafeUint128: overflow");
     }
 
@@ -91,7 +91,7 @@ library UV3Math {
      @dev Computes a unique vault's symbol for vaults created through Ramses factory.
      @param value index of the vault to be created
      */
-    function computeIVsymbol(uint256 value) public pure returns (string memory) {
+    function computeIVsymbol(uint256 value) internal pure returns (string memory) {
         return string(abi.encodePacked("IV-", Strings.toString(value), "-THE"));
     }
 }

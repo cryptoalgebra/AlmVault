@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Unlicense
 
-pragma solidity 0.7.6;
+pragma solidity >=0.5.0;
 
 interface IAlmVault{
 
     function almVaultFactory() external view returns(address);
+    function pluginFatory() external view returns(address);
 
     function pool() external view returns(address);
     function token0() external view returns(address);

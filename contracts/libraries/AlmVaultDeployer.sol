@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.7.6;
+pragma solidity >=0.8.4;
 
 import {AlmVault} from '../AlmVault.sol';
-import {IAlgebraFactory} from '@cryptoalgebra/v1-core/contracts/interfaces/IAlgebraFactory.sol';
+import {IAlgebraFactory} from '@cryptoalgebra/integral-core/contracts/interfaces/IAlgebraFactory.sol';
 
 library AlmVaultDeployer {
 
     function createAlmVault(
+        address pluginFactory,
         address pool, 
         address token0,
         bool allowToken0,
@@ -14,7 +15,7 @@ library AlmVaultDeployer {
         bool allowToken1,
         uint32 twapPeriod,
         uint256 vaultIndex
-    ) public returns(address almVault) {
+    ) internal returns(address almVault) {
 
         almVault = address(
             new AlmVault{salt: keccak256(abi.encodePacked(
@@ -24,7 +25,8 @@ library AlmVaultDeployer {
                 token1, 
                 allowToken1)
             )}
-                (pool, 
+                (pluginFactory,
+                pool, 
                 allowToken0, 
                 allowToken1, 
                 msg.sender, 

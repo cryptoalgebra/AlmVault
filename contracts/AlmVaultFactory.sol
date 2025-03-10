@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: BUSL-1.1
-pragma solidity 0.7.6;
+pragma solidity >=0.8.4;
 
 import {IAlmVaultFactory} from './interfaces/IAlmVaultFactory.sol';
-import {IAlgebraFactory} from '@cryptoalgebra/v1-core/contracts/interfaces/IAlgebraFactory.sol';
+import {IAlgebraFactory} from '@cryptoalgebra/integral-core/contracts/interfaces/IAlgebraFactory.sol';
 import {Ownable} from '@openzeppelin/contracts/access/Ownable.sol';
-import {ReentrancyGuard} from '@openzeppelin/contracts/utils/ReentrancyGuard.sol';
+import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {AlmVaultDeployer} from './libraries/AlmVaultDeployer.sol';
-import {IAlgebraPool} from "@cryptoalgebra/v1-core/contracts/interfaces/IAlgebraPool.sol";
-import {SafeMath} from "@openzeppelin/contracts/math/SafeMath.sol";
+import {IAlgebraPool} from "@cryptoalgebra/integral-core/contracts/interfaces/IAlgebraPool.sol";
+import {SafeMath} from "@openzeppelin/contracts/utils/math/SafeMath.sol";
+
+import "hardhat/console.sol";
 
 contract AlmVaultFactory is IAlmVaultFactory, ReentrancyGuard, Ownable {
     
@@ -20,6 +22,7 @@ contract AlmVaultFactory is IAlmVaultFactory, ReentrancyGuard, Ownable {
     uint256 constant PRECISION = 10**18;
     uint32 constant DEFAULT_TWAP_PERIOD = 60 minutes;
     address public override immutable algebraFactory;
+    address public pluginFactory;
     address public override feeRecipient;
     uint256 public override ammFee;
     uint256 public override baseFee;
@@ -32,9 +35,10 @@ contract AlmVaultFactory is IAlmVaultFactory, ReentrancyGuard, Ownable {
      @notice creates an instance of AlmVaultFactory
      @param _algebraFactory Algebra V1 factory
      */
-    constructor(address _algebraFactory) {
+    constructor(address _algebraFactory, address _pluginFactory) {
         require(_algebraFactory != NULL_ADDRESS, 'IVF.constructor: zero address');
         algebraFactory = _algebraFactory;
+        pluginFactory = _pluginFactory;
         feeRecipient = msg.sender;
         ammFee = DEFAULT_AMM_FEE; 
         baseFee = DEFAULT_BASE_FEE; 
@@ -72,16 +76,16 @@ contract AlmVaultFactory is IAlmVaultFactory, ReentrancyGuard, Ownable {
 
         (/*uint160 price*/,
          /*int24 tick*/,
-         /*uint16 fee*/,
-         /*uint16 timepointIndex*/,
-         /*uint16 communityFeeToken0*/,
-         /*uint16 communityFeeToken1*/,
+         /*uint16 lastFee*/,
+         /*uint8 pluginConfig*/,
+         /*uint16 communityFee*/,
          bool unlocked
         ) = IAlgebraPool(pool).globalState();
 
         require(unlocked, 'IVF.createAlmVault: pool is locked');
 
         almVault = AlmVaultDeployer.createAlmVault(
+                pluginFactory,
                 pool, 
                 token0,
                 allowToken0, 
