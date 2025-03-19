@@ -1,0 +1,57 @@
+Network Info
+============
+> HardhatEVM: v2.5.0
+> network:    hardhat
+
+Creating Typechain artifacts in directory typechain for target ethers-v5
+Successfully generated Typechain artifacts!
+
+
+  ICHIVault General Functionality
+    ✓ multiple deposits and total withdrawal (5293ms)
+    ✓ calculates fees properly & rebalances to limit-only after large swap (100/0) (2437ms)
+    ✓ calculates fees properly & rebalances to limit-only after large swap (40/60, 0/100) (2072ms)
+    ✓ calculates amm fees properly (2122ms)
+    ✓ collectFees (2303ms)
+    ✓ deposit/withdrawal with many users (2326ms)
+    ✓ can withdraw deposited funds without rebalance (1411ms)
+
+  ETHUSDT ICHIVault Test
+    ✓ handles deposit / withdrawal from pools of different balances (2025ms)
+
+  ICHIVault additional coverage tests
+    ✓ test swap (847ms)
+
+  Access Control Checks
+    ✓ ICHIVault (116ms)
+
+  Input Validation Checks
+    ✓ ICHIVaultFactory - misc (713ms)
+    ✓ ICHIVaultFactory - createIchiVault (664ms)
+    ✓ ICHIVault - manual calls (198ms)
+    ✓ ICHIVault - deposit (1255ms)
+    ✓ ICHIVault - withdraw (266ms)
+    ✓ ICHIVault - rebalance (681ms)
+    ✓ ICHIVault - setTwapPeriod (39ms)
+    ✓ ICHIVault - setHysteresis
+    ✓ ICHIVault - symbol (368ms)
+
+  Vaults on Mainnet Fork
+    ✓ allows to operate with usdt-wbnb vault (7559ms)
+    ✓ allows to operate with wbnb-frxeth vault (11846ms)
+
+
+  21 passing (1m)
+
+------------------------|----------|----------|----------|----------|----------------|
+File                    |  % Stmts | % Branch |  % Funcs |  % Lines |Uncovered Lines |
+------------------------|----------|----------|----------|----------|----------------|
+ contracts/             |    96.33 |    86.57 |      100 |    96.25 |                |
+  ICHIVault.sol         |    95.63 |    84.55 |      100 |    95.52 |... 635,658,668 |
+  ICHIVaultFactory.sol  |      100 |    95.83 |      100 |      100 |                |
+ contracts/lib/         |      100 |       50 |      100 |      100 |                |
+  ICHIVaultDeployer.sol |      100 |      100 |      100 |      100 |                |
+  UV3Math.sol           |      100 |       50 |      100 |      100 |                |
+------------------------|----------|----------|----------|----------|----------------|
+All files               |    96.44 |    86.03 |      100 |    96.37 |                |
+------------------------|----------|----------|----------|----------|----------------|
