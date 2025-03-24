@@ -75,7 +75,7 @@ contract ICHIVaultFactory is IICHIVaultFactory, ReentrancyGuard, Ownable {
         bool allowTokenA,
         address tokenB,
         bool allowTokenB
-    ) external override nonReentrant returns (address ichiVault) {
+    ) external override onlyOwner nonReentrant returns (address ichiVault) {
         require(tokenA != tokenB, "IVF.createICHIVault: identical tokens");
 
         (address token0, address token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
