@@ -107,7 +107,7 @@ contract ICHIVault is IICHIVault, IAlgebraSwapCallback, ERC20, ReentrancyGuard, 
     /// @return int24 baseLower tick
     function baseLower() external view override returns (int24) {
         if (basePositionId == 0) return 0;
-        (,,,,int24 tickLower,,,,,,) = _nftManager().positions(basePositionId);
+        (,,,,,int24 tickLower,,,,,,) = _nftManager().positions(basePositionId);
         return tickLower;
     }
 
@@ -115,7 +115,7 @@ contract ICHIVault is IICHIVault, IAlgebraSwapCallback, ERC20, ReentrancyGuard, 
     /// @return int24 baseUpper tick
     function baseUpper() external view override returns (int24) {
         if (basePositionId == 0) return 0;
-        (,,,,,int24 tickUpper,,,,,) = _nftManager().positions(basePositionId);
+        (,,,,,,int24 tickUpper,,,,,) = _nftManager().positions(basePositionId);
         return tickUpper;
     }
 
@@ -123,7 +123,7 @@ contract ICHIVault is IICHIVault, IAlgebraSwapCallback, ERC20, ReentrancyGuard, 
     /// @return int24 limitLower tick
     function limitLower() external view override returns (int24) {
         if (limitPositionId == 0) return 0;
-        (,,,,int24 tickLower,,,,,,) = _nftManager().positions(limitPositionId);
+        (,,,,,int24 tickLower,,,,,,) = _nftManager().positions(limitPositionId);
         return tickLower;
     }
 
@@ -131,7 +131,7 @@ contract ICHIVault is IICHIVault, IAlgebraSwapCallback, ERC20, ReentrancyGuard, 
     /// @return int24 limitUpper tick
     function limitUpper() external view override returns (int24) {
         if (limitPositionId == 0) return 0;
-        (,,,,,int24 tickUpper,,,,,) = _nftManager().positions(limitPositionId);
+        (,,,,,,int24 tickUpper,,,,,) = _nftManager().positions(limitPositionId);
         return tickUpper;
     }
 
@@ -271,6 +271,7 @@ contract ICHIVault is IICHIVault, IAlgebraSwapCallback, ERC20, ReentrancyGuard, 
             INonfungiblePositionManager.MintParams({
                 token0: token0,
                 token1: token1,
+                deployer: address(0),
                 tickLower: tickLower,
                 tickUpper: tickUpper,
                 amount0Desired: amount0Desired,
@@ -391,6 +392,7 @@ contract ICHIVault is IICHIVault, IAlgebraSwapCallback, ERC20, ReentrancyGuard, 
 
         // Get position info
         (
+            ,
             ,
             ,
             ,
@@ -724,6 +726,7 @@ contract ICHIVault is IICHIVault, IAlgebraSwapCallback, ERC20, ReentrancyGuard, 
             ,
             ,
             ,
+            ,
             int24 tickLower,
             int24 tickUpper,
             uint128 positionLiquidity,
@@ -764,6 +767,7 @@ contract ICHIVault is IICHIVault, IAlgebraSwapCallback, ERC20, ReentrancyGuard, 
 
         // Get current position info from NFT manager
         (
+            ,
             ,
             ,
             ,
