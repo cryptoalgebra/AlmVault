@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity >=0.8.4;
 
-import { IICHIVaultFactory } from "./interfaces/IICHIVaultFactory.sol";
+import { IAlgebraVaultFactory } from "./interfaces/IAlgebraVaultFactory.sol";
 import { IAlgebraFactory } from "@cryptoalgebra/integral-core/contracts/interfaces/IAlgebraFactory.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import { ICHIVaultDeployer } from "./lib/ICHIVaultDeployer.sol";
+import { AlgebraVaultDeployer } from "./lib/AlgebraVaultDeployer.sol";
 import {
     IBasePluginV1Factory
 } from "@cryptoalgebra/integral-base-plugin/contracts/interfaces/IBasePluginV1Factory.sol";
 import { IAlgebraPool } from "@cryptoalgebra/integral-core/contracts/interfaces/IAlgebraPool.sol";
 import { SafeMath } from "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
-contract ICHIVaultFactory is IICHIVaultFactory, ReentrancyGuard, Ownable {
+contract AlgebraVaultFactory is IAlgebraVaultFactory, ReentrancyGuard, Ownable {
     using SafeMath for uint256;
 
     address constant NULL_ADDRESS = address(0);
@@ -31,11 +31,11 @@ contract ICHIVaultFactory is IICHIVaultFactory, ReentrancyGuard, Ownable {
     uint256 public override baseFee;
     uint256 public override baseFeeSplit;
 
-    mapping(bytes32 => address) public getICHIVault;
+    mapping(bytes32 => address) public getAlgebraVault;
     address[] public allVaults;
 
     /**
-     @notice creates an instance of ICHIVaultFactory
+     @notice creates an instance of AlgebraVaultFactory
      @param _algebraFactory Algebra Integral factory
      @param _basePluginFactory Algebra Integral Base Plugin factory
      */
@@ -58,48 +58,48 @@ contract ICHIVaultFactory is IICHIVaultFactory, ReentrancyGuard, Ownable {
         ammFee = DEFAULT_AMM_FEE;
         baseFee = DEFAULT_BASE_FEE;
         baseFeeSplit = DEFAULT_BASE_FEE_SPLIT;
-        emit DeployICHIVaultFactory(msg.sender, _algebraFactory, _basePluginFactory);
+        emit DeployAlgebraVaultFactory(msg.sender, _algebraFactory, _basePluginFactory);
     }
 
     /**
-     @notice Creates an ICHIVault for specified tokenA/tokenB/fee. May create an underlying Uniswap V3 pool.
+     @notice Creates an AlgebraVault for specified tokenA/tokenB/fee. May create an underlying Uniswap V3 pool.
      Controls liquidity provision types (one-sided or two-sided).
      @param tokenA TokenA of the Algebra V1 pool.
      @param allowTokenA Indicates if tokenA is accepted during deposit.
      @param tokenB TokenB of the Algebra V1 pool.
      @param allowTokenB Indicates if tokenB is accepted during deposit.
-     @return ichiVault Address of the newly created ICHIVault.
+     @return algebraVault Address of the newly created AlgebraVault.
      */
-    function createICHIVault(
+    function createAlgebraVault(
         address tokenA,
         bool allowTokenA,
         address tokenB,
         bool allowTokenB
-    ) external override onlyOwner nonReentrant returns (address ichiVault) {
-        require(tokenA != tokenB, "IVF.createICHIVault: identical tokens");
+    ) external override onlyOwner nonReentrant returns (address algebraVault) {
+        require(tokenA != tokenB, "IVF.createAlgebraVault: identical tokens");
 
         (address token0, address token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
         (bool allowToken0, bool allowToken1) = tokenA < tokenB
             ? (allowTokenA, allowTokenB)
             : (allowTokenB, allowTokenA);
 
-        require(token0 != NULL_ADDRESS, "IVF.createICHIVault: zero address");
-        require(allowTokenA || allowTokenB, "IVF.createICHIVault: no allowed tokens");
+        require(token0 != NULL_ADDRESS, "IVF.createAlgebraVault: zero address");
+        require(allowTokenA || allowTokenB, "IVF.createAlgebraVault: no allowed tokens");
 
         require(
-            getICHIVault[genKey(msg.sender, token0, token1, allowToken0, allowToken1)] == NULL_ADDRESS,
-            "IVF.createICHIVault: vault exists"
+            getAlgebraVault[genKey(msg.sender, token0, token1, allowToken0, allowToken1)] == NULL_ADDRESS,
+            "IVF.createAlgebraVault: vault exists"
         );
 
         address pool = IAlgebraFactory(algebraFactory).poolByPair(tokenA, tokenB);
 
-        require(pool != NULL_ADDRESS, "IVF.createICHIVault: pool must exist");
+        require(pool != NULL_ADDRESS, "IVF.createAlgebraVault: pool must exist");
 
         (, , , , , bool unlocked) = IAlgebraPool(pool).globalState();
 
-        require(unlocked, "IVF.createICHIVault: pool is locked");
+        require(unlocked, "IVF.createAlgebraVault: pool is locked");
 
-        ichiVault = ICHIVaultDeployer.createICHIVault(
+        algebraVault = AlgebraVaultDeployer.createAlgebraVault(
             pool,
             token0,
             allowToken0,
@@ -110,11 +110,11 @@ contract ICHIVaultFactory is IICHIVaultFactory, ReentrancyGuard, Ownable {
         );
 
         // populate mapping in the reverse direction
-        getICHIVault[genKey(msg.sender, token0, token1, allowToken0, allowToken1)] = ichiVault;
-        getICHIVault[genKey(msg.sender, token1, token0, allowToken1, allowToken0)] = ichiVault;
-        allVaults.push(ichiVault);
+        getAlgebraVault[genKey(msg.sender, token0, token1, allowToken0, allowToken1)] = algebraVault;
+        getAlgebraVault[genKey(msg.sender, token1, token0, allowToken1, allowToken0)] = algebraVault;
+        allVaults.push(algebraVault);
 
-        emit ICHIVaultCreated(msg.sender, ichiVault, token0, allowToken0, token1, allowToken1, allVaults.length);
+        emit AlgebraVaultCreated(msg.sender, algebraVault, token0, allowToken0, token1, allowToken1, allVaults.length);
     }
 
     /**
@@ -163,7 +163,7 @@ contract ICHIVaultFactory is IICHIVaultFactory, ReentrancyGuard, Ownable {
     }
 
     /**
-     * @notice generate a key for getIchiVault
+     * @notice generate a key for getAlgebraVault
      * @param deployer vault creator
      * @param token0 the first of two tokens in the vault
      * @param token1 the second of two tokens in the vault

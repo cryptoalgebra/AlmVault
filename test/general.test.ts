@@ -5,12 +5,12 @@ import { ethers, network } from "hardhat";
 
 import { IAlgebraFactory, IBasePluginV1Factory, INonfungiblePositionManager, ISwapRouter } from "../types";
 import { IAlgebraPool } from "../types/@cryptoalgebra/integral-core/contracts/interfaces/IAlgebraPool";
-import { ICHIVault } from "../types/contracts/ICHIVault";
-import { ICHIVaultFactory } from "../types/contracts/ICHIVaultFactory";
+import { AlgebraVault } from "../types/contracts/AlgebraVault";
+import { AlgebraVaultFactory } from "../types/contracts/AlgebraVaultFactory";
 import { UV3Math } from "../types/contracts/lib/UV3Math";
 import { TestERC20 } from "../types/contracts/mocks/TestERC20";
 import { TestOracle } from "../types/contracts/mocks/TestOracle";
-import { ichiVaultTestFixture } from "./shared/fixtures";
+import { algebraVaultTestFixture } from "./shared/fixtures";
 import { FeeAmount, TICK_SPACINGS, encodePriceSqrt, getMaxTick, getMinTick } from "./shared/utilities";
 
 const NULL_ADDRESS = "0x0000000000000000000000000000000000000000";
@@ -37,8 +37,8 @@ describe("Access Control Checks", () => {
   let token1: TestERC20;
   let token2: TestERC20;
   let uniswapPool: IAlgebraPool;
-  let ichiVaultFactory: ICHIVaultFactory;
-  let ichiVault: ICHIVault;
+  let algebraVaultFactory: AlgebraVaultFactory;
+  let algebraVault: AlgebraVault;
   let pluginFactory: IBasePluginV1Factory;
 
   let wallet: SignerWithAddress;
@@ -57,8 +57,8 @@ describe("Access Control Checks", () => {
   });
 
   beforeEach("deploy contracts", async () => {
-    ({ token0, token1, token2, factory, router, nft, pluginFactory, oracle, ichiVaultFactory } = await loadFixture(
-      ichiVaultTestFixture,
+    ({ token0, token1, token2, factory, router, nft, pluginFactory, oracle, algebraVaultFactory } = await loadFixture(
+      algebraVaultTestFixture,
     ));
     await factory.createPool(token0.address, token1.address, '0x');
     const poolAddress = await factory.poolByPair(token0.address, token1.address);
@@ -66,15 +66,15 @@ describe("Access Control Checks", () => {
     uniswapPool = (await ethers.getContractAt("IAlgebraPool", poolAddress)) as IAlgebraPool;
     await uniswapPool.initialize(encodePriceSqrt("1", "1"));
 
-    await ichiVaultFactory.connect(wallet).createICHIVault(token0.address, true, token1.address, false);
+    await algebraVaultFactory.connect(wallet).createAlgebraVault(token0.address, true, token1.address, false);
 
-    const ichiVaultAddress = await ichiVaultFactory.allVaults(0);
-    ichiVault = (await ethers.getContractAt("ICHIVault", ichiVaultAddress)) as ICHIVault;
+    const algebraVaultAddress = await algebraVaultFactory.allVaults(0);
+    algebraVault = (await ethers.getContractAt("AlgebraVault", algebraVaultAddress)) as AlgebraVault;
 
     await expect(
-      ichiVault.connect(wallet).setDepositMax(ethers.utils.parseEther("100000"), ethers.utils.parseEther("100000")),
+      algebraVault.connect(wallet).setDepositMax(ethers.utils.parseEther("100000"), ethers.utils.parseEther("100000")),
     )
-      .to.emit(ichiVault, "DepositMax")
+      .to.emit(algebraVault, "DepositMax")
       .withArgs(wallet.address, ethers.utils.parseEther("100000"), ethers.utils.parseEther("100000"));
 
     // adding extra liquidity into pool to make sure there's always
@@ -105,16 +105,16 @@ describe("Access Control Checks", () => {
     await network.provider.send("evm_increaseTime", [3600]);
   });
 
-  it("ICHIVault", async () => {
+  it("AlgebraVault", async () => {
     const msg1 = "Ownable: caller is not the owner";
 
-    await expect(ichiVault.connect(alice).rebalance(-1800, 1800, -600, 0, 0)).to.be.revertedWith(msg1);
+    await expect(algebraVault.connect(alice).rebalance(-1800, 1800, -600, 0, 0)).to.be.revertedWith(msg1);
     await expect(
-      ichiVault.connect(alice).setDepositMax(ethers.utils.parseEther("100000"), ethers.utils.parseEther("100000")),
+      algebraVault.connect(alice).setDepositMax(ethers.utils.parseEther("100000"), ethers.utils.parseEther("100000")),
     ).to.be.revertedWith(msg1);
-    await expect(ichiVault.connect(alice).setHysteresis(50)) // 5%
+    await expect(algebraVault.connect(alice).setHysteresis(50)) // 5%
       .to.be.revertedWith(msg1);
-    await expect(ichiVault.connect(alice).setTwapPeriod(1800)).to.be.revertedWith(msg1);
+    await expect(algebraVault.connect(alice).setTwapPeriod(1800)).to.be.revertedWith(msg1);
   });
 });
 
@@ -127,8 +127,8 @@ describe("Input Validation Checks", () => {
   let token1: TestERC20;
   let token2: TestERC20;
   let uniswapPool: IAlgebraPool;
-  let ichiVaultFactory: ICHIVaultFactory;
-  let ichiVault: ICHIVault;
+  let algebraVaultFactory: AlgebraVaultFactory;
+  let algebraVault: AlgebraVault;
   let pluginFactory: IBasePluginV1Factory;
   let wallet: SignerWithAddress;
   let alice: SignerWithAddress;
@@ -146,8 +146,8 @@ describe("Input Validation Checks", () => {
   });
 
   beforeEach("deploy contracts", async () => {
-    ({ token0, token1, token2, factory, router, nft, pluginFactory, oracle, ichiVaultFactory } = await loadFixture(
-      ichiVaultTestFixture,
+    ({ token0, token1, token2, factory, router, nft, pluginFactory, oracle, algebraVaultFactory } = await loadFixture(
+      algebraVaultTestFixture,
     ));
 
     await factory.createPool(token0.address, token1.address, '0x');
@@ -155,20 +155,20 @@ describe("Input Validation Checks", () => {
     uniswapPool = (await ethers.getContractAt("IAlgebraPool", poolAddress)) as IAlgebraPool;
     await uniswapPool.initialize(encodePriceSqrt("1", "1"));
 
-    const tx = await ichiVaultFactory.connect(wallet).createICHIVault(token0.address, true, token1.address, false);
+    const tx = await algebraVaultFactory.connect(wallet).createAlgebraVault(token0.address, true, token1.address, false);
 
-    const ichiVaultAddress = await ichiVaultFactory.allVaults(0);
-    ichiVault = (await ethers.getContractAt("ICHIVault", ichiVaultAddress)) as ICHIVault;
+    const algebraVaultAddress = await algebraVaultFactory.allVaults(0);
+    algebraVault = (await ethers.getContractAt("AlgebraVault", algebraVaultAddress)) as AlgebraVault;
 
     await expect(tx)
-      .to.emit(ichiVaultFactory, "ICHIVaultCreated")
-      .withArgs(wallet.address, ichiVault.address, token0.address, true, token1.address, false, 1);
-    poolAddress = await ichiVault.pool();
+      .to.emit(algebraVaultFactory, "AlgebraVaultCreated")
+      .withArgs(wallet.address, algebraVault.address, token0.address, true, token1.address, false, 1);
+    poolAddress = await algebraVault.pool();
     await expect(tx)
-      .to.emit(ichiVault, "DeployICHIVault")
-      .withArgs(ichiVaultFactory.address, poolAddress, true, false, wallet.address, 3600);
+      .to.emit(algebraVault, "DeployAlgebraVault")
+      .withArgs(algebraVaultFactory.address, poolAddress, true, false, wallet.address, 3600);
 
-    await ichiVault.connect(wallet).setDepositMax(ethers.utils.parseEther("100000"), ethers.utils.parseEther("100000"));
+    await algebraVault.connect(wallet).setDepositMax(ethers.utils.parseEther("100000"), ethers.utils.parseEther("100000"));
 
     // adding extra liquidity into pool to make sure there's always
     // someone to swap with
@@ -195,7 +195,7 @@ describe("Input Validation Checks", () => {
     await network.provider.send("evm_increaseTime", [3600]);
   });
 
-  it("ICHIVaultFactory - misc", async () => {
+  it("AlgebraVaultFactory - misc", async () => {
     const msg1 = "IVF.constructor: zero address",
       msg2 = "IVF.setFeeRecipient: zero address",
       msg3 = "IVF.setBaseFee: fees must be <= 10**18",
@@ -205,56 +205,56 @@ describe("Input Validation Checks", () => {
     const uV3MathFactory = await ethers.getContractFactory("UV3Math");
     const uV3Math = (await uV3MathFactory.deploy()) as UV3Math;
 
-    const ichiVaultDeployer = await ethers.getContractFactory("ICHIVaultDeployer", {
+    const algebraVaultDeployer = await ethers.getContractFactory("AlgebraVaultDeployer", {
       libraries: {
         UV3Math: uV3Math.address,
       },
     });
-    //const libICHIVaultDeployer = (await ichiVaultDeployer.deploy()) as ICHIVaultDeployer
-    const libICHIVaultDeployer = await ichiVaultDeployer.deploy();
+    //const libAlgebraVaultDeployer = (await algebraVaultDeployer.deploy()) as AlgebraVaultDeployer
+    const libAlgebraVaultDeployer = await algebraVaultDeployer.deploy();
 
-    const ichiVaultFactoryFactory = await ethers.getContractFactory("ICHIVaultFactory", {
+    const algebraVaultFactoryFactory = await ethers.getContractFactory("AlgebraVaultFactory", {
       libraries: {
-        ICHIVaultDeployer: libICHIVaultDeployer.address,
+        AlgebraVaultDeployer: libAlgebraVaultDeployer.address,
       },
     });
 
-    await expect(ichiVaultFactoryFactory.deploy(NULL_ADDRESS, NULL_ADDRESS, "VEL")).to.be.revertedWith(msg1);
+    await expect(algebraVaultFactoryFactory.deploy(NULL_ADDRESS, NULL_ADDRESS, "VEL")).to.be.revertedWith(msg1);
 
-    await expect(ichiVaultFactory.connect(wallet).setFeeRecipient(NULL_ADDRESS)).to.be.revertedWith(msg2);
-    await expect(ichiVaultFactory.connect(wallet).setBaseFee(PERCENT_101)).to.be.revertedWith(msg3);
-    await expect(ichiVaultFactory.connect(wallet).setAmmFee(PERCENT_101)).to.be.revertedWith(msg4);
-    await expect(ichiVaultFactory.connect(wallet).setBaseFeeSplit(PERCENT_101)).to.be.revertedWith(msg5);
-    await ichiVaultFactory.connect(wallet).setAmmFee(PERCENT_10);
-    await ichiVaultFactory.connect(wallet).setAmmFee(0);
+    await expect(algebraVaultFactory.connect(wallet).setFeeRecipient(NULL_ADDRESS)).to.be.revertedWith(msg2);
+    await expect(algebraVaultFactory.connect(wallet).setBaseFee(PERCENT_101)).to.be.revertedWith(msg3);
+    await expect(algebraVaultFactory.connect(wallet).setAmmFee(PERCENT_101)).to.be.revertedWith(msg4);
+    await expect(algebraVaultFactory.connect(wallet).setBaseFeeSplit(PERCENT_101)).to.be.revertedWith(msg5);
+    await algebraVaultFactory.connect(wallet).setAmmFee(PERCENT_10);
+    await algebraVaultFactory.connect(wallet).setAmmFee(0);
 
-    await expect(ichiVaultFactory.connect(wallet).setAmmFee(PERCENT_81)).to.be.revertedWith(msg4);
+    await expect(algebraVaultFactory.connect(wallet).setAmmFee(PERCENT_81)).to.be.revertedWith(msg4);
   });
 
-  it("ICHIVaultFactory - createIchiVault", async () => {
-    const msg1 = "IVF.createICHIVault: identical tokens",
-      msg2 = "IVF.createICHIVault: zero address",
-      msg3 = "IVF.createICHIVault: no allowed tokens",
-      msg4 = "IVF.createICHIVault: vault exists",
-      msg6 = "IVF.createICHIVault: pool must exist";
+  it("AlgebraVaultFactory - createAlgebraVault", async () => {
+    const msg1 = "IVF.createAlgebraVault: identical tokens",
+      msg2 = "IVF.createAlgebraVault: zero address",
+      msg3 = "IVF.createAlgebraVault: no allowed tokens",
+      msg4 = "IVF.createAlgebraVault: vault exists",
+      msg6 = "IVF.createAlgebraVault: pool must exist";
 
     await expect(
-      ichiVaultFactory.connect(wallet).createICHIVault(token0.address, true, token0.address, false),
+      algebraVaultFactory.connect(wallet).createAlgebraVault(token0.address, true, token0.address, false),
     ).to.be.revertedWith(msg1);
     await expect(
-      ichiVaultFactory.connect(wallet).createICHIVault(NULL_ADDRESS, true, token1.address, false),
+      algebraVaultFactory.connect(wallet).createAlgebraVault(NULL_ADDRESS, true, token1.address, false),
     ).to.be.revertedWith(msg2);
     await expect(
-      ichiVaultFactory.connect(wallet).createICHIVault(token0.address, true, NULL_ADDRESS, false),
+      algebraVaultFactory.connect(wallet).createAlgebraVault(token0.address, true, NULL_ADDRESS, false),
     ).to.be.revertedWith(msg2);
     await expect(
-      ichiVaultFactory.connect(wallet).createICHIVault(token0.address, false, token1.address, false),
+      algebraVaultFactory.connect(wallet).createAlgebraVault(token0.address, false, token1.address, false),
     ).to.be.revertedWith(msg3);
     await expect(
-      ichiVaultFactory.connect(wallet).createICHIVault(token0.address, true, token1.address, false),
+      algebraVaultFactory.connect(wallet).createAlgebraVault(token0.address, true, token1.address, false),
     ).to.be.revertedWith(msg4);
     await expect(
-      ichiVaultFactory.connect(wallet).createICHIVault(token0.address, true, token2.address, false),
+      algebraVaultFactory.connect(wallet).createAlgebraVault(token0.address, true, token2.address, false),
     ).to.be.revertedWith(msg6);
 
     await factory.createPool(token0.address, token2.address, '0x');
@@ -262,40 +262,40 @@ describe("Input Validation Checks", () => {
     uniswapPool = (await ethers.getContractAt("IAlgebraPool", poolAddress)) as IAlgebraPool;
     await uniswapPool.initialize(encodePriceSqrt("1", "1"));
 
-    await ichiVaultFactory.connect(wallet).createICHIVault(token0.address, true, token2.address, false);
+    await algebraVaultFactory.connect(wallet).createAlgebraVault(token0.address, true, token2.address, false);
   });
 
   function msg(text: string) {
     return "VM Exception while processing transaction: reverted with reason string '" + text + "'";
   }
 
-  it("ICHIVault - manual calls", async () => {
-    const msg1 = "IV.constructor: zero address";
+  it("AlgebraVault - manual calls", async () => {
+    const msg1 = "AV.constructor: zero address";
 
     const uV3MathFactory = await ethers.getContractFactory("UV3Math");
     const uV3Math = (await uV3MathFactory.deploy()) as UV3Math;
 
-    const ichiVaultFactory = await ethers.getContractFactory("ICHIVault", {
+    const algebraVaultFactory = await ethers.getContractFactory("AlgebraVault", {
       libraries: {
         UV3Math: uV3Math.address,
       },
     });
 
-    // const ichiVaultFactory = await ethers.getContractFactory('ICHIVault')
-    await expect(ichiVaultFactory.deploy(NULL_ADDRESS, true, true, wallet.address, 3600, 1)).to.be.reverted;
+    // const algebraVaultFactory = await ethers.getContractFactory('AlgebraVault')
+    await expect(algebraVaultFactory.deploy(NULL_ADDRESS, true, true, wallet.address, 3600, 1)).to.be.reverted;
 
-    //await expect(ichiVault.algebraMintCallback(1, 1, [])).to.be.reverted;
-    await expect(ichiVault.algebraSwapCallback(1, 1, [])).to.be.reverted;
+    //await expect(algebraVault.algebraMintCallback(1, 1, [])).to.be.reverted;
+    await expect(algebraVault.algebraSwapCallback(1, 1, [])).to.be.reverted;
   });
 
-  it("ICHIVault - disconnected plugin", async () => {
-    const msg1 = "IV.checkHysteresis: diconnected plugin",
-          msg2 = "IV.deposit: to";
+  it("AlgebraVault - disconnected plugin", async () => {
+    const msg1 = "AV.checkHysteresis: diconnected plugin",
+          msg2 = "AV.deposit: to";
 
     let poolAddress = await factory.poolByPair(token0.address, token1.address);
     let uniswapPool = (await ethers.getContractAt("IAlgebraPool", poolAddress)) as IAlgebraPool;
 
-    await ichiVaultFactory.connect(wallet).createICHIVault(token0.address, true, token1.address, false);
+    await algebraVaultFactory.connect(wallet).createAlgebraVault(token0.address, true, token1.address, false);
 
     const pluginAddress = await pluginFactory.pluginByPool(uniswapPool.address);
     //console.log("default plugin: " + pluginAddress);
@@ -303,7 +303,7 @@ describe("Input Validation Checks", () => {
     // plugin isn't connected yet
     await uniswapPool.setPlugin(NULL_ADDRESS);
     await expect(
-        ichiVault.deposit(ethers.utils.parseEther("4000"), ethers.utils.parseEther("4000"), alice.address),
+        algebraVault.deposit(ethers.utils.parseEther("4000"), ethers.utils.parseEther("4000"), alice.address),
       ).to.be.revertedWith(msg1);
 
     // connect plugin here
@@ -311,17 +311,17 @@ describe("Input Validation Checks", () => {
 
     //check 'to' address
     await expect(
-      ichiVault.connect(alice).deposit(ethers.utils.parseEther("4000"), ethers.utils.parseEther("4000"), NULL_ADDRESS),
+      algebraVault.connect(alice).deposit(ethers.utils.parseEther("4000"), ethers.utils.parseEther("4000"), NULL_ADDRESS),
     ).to.be.revertedWith(msg2);
   });
 
-  it("ICHIVault - deposit", async () => {
-    const msg1 = "IV.deposit: token0 not allowed",
-      msg2 = "IV.deposit: token1 not allowed",
-      msg3 = "IV.deposit: deposits must be > 0",
-      msg4 = "IV.deposit: deposits too large",
-      msg5 = "IV.deposit: to",
-      msg6 = "IV.deposit: maxTotalSupply";
+  it("AlgebraVault - deposit", async () => {
+    const msg1 = "AV.deposit: token0 not allowed",
+      msg2 = "AV.deposit: token1 not allowed",
+      msg3 = "AV.deposit: deposits must be > 0",
+      msg4 = "AV.deposit: deposits too large",
+      msg5 = "AV.deposit: to",
+      msg6 = "AV.deposit: maxTotalSupply";
 
     // pool already exists and initialized
     //await factory.createPool(token0.address, token1.address)
@@ -336,182 +336,182 @@ describe("Input Validation Checks", () => {
     uniswapPool = (await ethers.getContractAt("IAlgebraPool", poolAddress)) as IAlgebraPool;
     await uniswapPool.initialize(encodePriceSqrt("1", "1"));
 
-    await ichiVaultFactory.connect(wallet).createICHIVault(token0.address, true, token1.address, false);
-    await ichiVaultFactory.connect(wallet).createICHIVault(token0.address, false, token2.address, true);
+    await algebraVaultFactory.connect(wallet).createAlgebraVault(token0.address, true, token1.address, false);
+    await algebraVaultFactory.connect(wallet).createAlgebraVault(token0.address, false, token2.address, true);
 
     // check allowToken policy
-    let vaultKey = await ichiVaultFactory.genKey(wallet.address, token0.address, token1.address, true, false);
-    let ichiVaultAddress = await ichiVaultFactory.getICHIVault(vaultKey);
-    ichiVault = (await ethers.getContractAt("ICHIVault", ichiVaultAddress)) as ICHIVault;
+    let vaultKey = await algebraVaultFactory.genKey(wallet.address, token0.address, token1.address, true, false);
+    let algebraVaultAddress = await algebraVaultFactory.getAlgebraVault(vaultKey);
+    algebraVault = (await ethers.getContractAt("AlgebraVault", algebraVaultAddress)) as AlgebraVault;
 
     await expect(
-      ichiVault.deposit(smallTokenAmount, ethers.utils.parseEther("4000"), alice.address),
+      algebraVault.deposit(smallTokenAmount, ethers.utils.parseEther("4000"), alice.address),
     ).to.be.revertedWith(msg2);
 
-    vaultKey = await ichiVaultFactory.genKey(wallet.address, token0.address, token2.address, false, true);
-    ichiVaultAddress = await ichiVaultFactory.getICHIVault(vaultKey);
-    ichiVault = (await ethers.getContractAt("ICHIVault", ichiVaultAddress)) as ICHIVault;
+    vaultKey = await algebraVaultFactory.genKey(wallet.address, token0.address, token2.address, false, true);
+    algebraVaultAddress = await algebraVaultFactory.getAlgebraVault(vaultKey);
+    algebraVault = (await ethers.getContractAt("AlgebraVault", algebraVaultAddress)) as AlgebraVault;
 
     await expect(
-      ichiVault.deposit(smallTokenAmount, ethers.utils.parseEther("4000"), alice.address),
+      algebraVault.deposit(smallTokenAmount, ethers.utils.parseEther("4000"), alice.address),
     ).to.be.revertedWith(msg1);
 
     // check deposit values
-    vaultKey = await ichiVaultFactory.genKey(wallet.address, token0.address, token1.address, true, false);
-    ichiVaultAddress = await ichiVaultFactory.getICHIVault(vaultKey);
-    ichiVault = (await ethers.getContractAt("ICHIVault", ichiVaultAddress)) as ICHIVault;
-    await expect(ichiVault.deposit(0, 0, alice.address)).to.be.revertedWith(msg3);
+    vaultKey = await algebraVaultFactory.genKey(wallet.address, token0.address, token1.address, true, false);
+    algebraVaultAddress = await algebraVaultFactory.getAlgebraVault(vaultKey);
+    algebraVault = (await ethers.getContractAt("AlgebraVault", algebraVaultAddress)) as AlgebraVault;
+    await expect(algebraVault.deposit(0, 0, alice.address)).to.be.revertedWith(msg3);
 
-    vaultKey = await ichiVaultFactory.genKey(wallet.address, token0.address, token2.address, false, true);
-    ichiVaultAddress = await ichiVaultFactory.getICHIVault(vaultKey);
-    ichiVault = (await ethers.getContractAt("ICHIVault", ichiVaultAddress)) as ICHIVault;
-    await expect(ichiVault.deposit(0, 0, alice.address)).to.be.revertedWith(msg3);
+    vaultKey = await algebraVaultFactory.genKey(wallet.address, token0.address, token2.address, false, true);
+    algebraVaultAddress = await algebraVaultFactory.getAlgebraVault(vaultKey);
+    algebraVault = (await ethers.getContractAt("AlgebraVault", algebraVaultAddress)) as AlgebraVault;
+    await expect(algebraVault.deposit(0, 0, alice.address)).to.be.revertedWith(msg3);
 
     // check against max deposit amounts
-    vaultKey = await ichiVaultFactory.genKey(wallet.address, token0.address, token1.address, true, false);
-    ichiVaultAddress = await ichiVaultFactory.getICHIVault(vaultKey);
-    ichiVault = (await ethers.getContractAt("ICHIVault", ichiVaultAddress)) as ICHIVault;
+    vaultKey = await algebraVaultFactory.genKey(wallet.address, token0.address, token1.address, true, false);
+    algebraVaultAddress = await algebraVaultFactory.getAlgebraVault(vaultKey);
+    algebraVault = (await ethers.getContractAt("AlgebraVault", algebraVaultAddress)) as AlgebraVault;
     await expect(
-      ichiVault.deposit(ethers.utils.parseEther("200000"), ethers.utils.parseEther("4000"), alice.address),
+      algebraVault.deposit(ethers.utils.parseEther("200000"), ethers.utils.parseEther("4000"), alice.address),
     ).to.be.revertedWith(msg4);
     await expect(
-      ichiVault.deposit(ethers.utils.parseEther("4000"), ethers.utils.parseEther("200000"), alice.address),
+      algebraVault.deposit(ethers.utils.parseEther("4000"), ethers.utils.parseEther("200000"), alice.address),
     ).to.be.revertedWith(msg4);
 
-    // alice approves the ICHIVault to transfer her tokens
-    await token0.connect(alice).approve(ichiVault.address, largeTokenAmount);
-    await token1.connect(alice).approve(ichiVault.address, largeTokenAmount);
+    // alice approves the AlgebraVault to transfer her tokens
+    await token0.connect(alice).approve(algebraVault.address, largeTokenAmount);
+    await token1.connect(alice).approve(algebraVault.address, largeTokenAmount);
     // mint tokens to alice
     await token0.mint(alice.address, largeTokenAmount);
     await token1.mint(alice.address, largeTokenAmount);
 
     //check 'to' address
     await expect(
-      ichiVault.connect(alice).deposit(ethers.utils.parseEther("4000"), ethers.utils.parseEther("4000"), NULL_ADDRESS),
+      algebraVault.connect(alice).deposit(ethers.utils.parseEther("4000"), ethers.utils.parseEther("4000"), NULL_ADDRESS),
     ).to.be.revertedWith(msg5);
     await expect(
-      ichiVault
+      algebraVault
         .connect(alice)
-        .deposit(ethers.utils.parseEther("4000"), ethers.utils.parseEther("4000"), ichiVaultAddress),
+        .deposit(ethers.utils.parseEther("4000"), ethers.utils.parseEther("4000"), algebraVaultAddress),
     ).to.be.revertedWith(msg5);
   });
 
-  it("ICHIVault - withdraw", async () => {
-    const msg1 = "IV.withdraw: to",
-      msg2 = "IV.withdraw: shares";
+  it("AlgebraVault - withdraw", async () => {
+    const msg1 = "AV.withdraw: to",
+      msg2 = "AV.withdraw: shares";
 
-    // alice approves the ICHIVault to transfer her tokens
-    await token0.connect(alice).approve(ichiVault.address, largeTokenAmount);
-    await token1.connect(alice).approve(ichiVault.address, largeTokenAmount);
+    // alice approves the AlgebraVault to transfer her tokens
+    await token0.connect(alice).approve(algebraVault.address, largeTokenAmount);
+    await token1.connect(alice).approve(algebraVault.address, largeTokenAmount);
     // mint tokens to alice
     await token0.mint(alice.address, largeTokenAmount);
     await token1.mint(alice.address, largeTokenAmount);
 
-    await ichiVault
+    await algebraVault
       .connect(alice)
       .deposit(ethers.utils.parseEther("4000"), ethers.utils.parseEther("4000"), alice.address);
 
     //check 'to' address
-    await expect(ichiVault.connect(alice).withdraw(ethers.utils.parseEther("4000"), NULL_ADDRESS)).to.be.revertedWith(
+    await expect(algebraVault.connect(alice).withdraw(ethers.utils.parseEther("4000"), NULL_ADDRESS)).to.be.revertedWith(
       msg1,
     );
     //check shares
-    await expect(ichiVault.connect(alice).withdraw(0, alice.address)).to.be.revertedWith(msg2);
+    await expect(algebraVault.connect(alice).withdraw(0, alice.address)).to.be.revertedWith(msg2);
   });
 
-  it("ICHIVault - rebalance", async () => {
-    const msg1 = "IV.rebalance: base position invalid",
-      msg3 = "IV.rebalance: identical positions",
-      msg2 = "IV.rebalance: limit position invalid";
+  it("AlgebraVault - rebalance", async () => {
+    const msg1 = "AV.rebalance: base position invalid",
+      msg3 = "AV.rebalance: identical positions",
+      msg2 = "AV.rebalance: limit position invalid";
 
-    // alice approves the ICHIVault to transfer her tokens
-    await token0.connect(alice).approve(ichiVault.address, largeTokenAmount);
-    await token1.connect(alice).approve(ichiVault.address, largeTokenAmount);
+    // alice approves the AlgebraVault to transfer her tokens
+    await token0.connect(alice).approve(algebraVault.address, largeTokenAmount);
+    await token1.connect(alice).approve(algebraVault.address, largeTokenAmount);
     // mint tokens to alice
     await token0.mint(alice.address, largeTokenAmount);
     await token1.mint(alice.address, largeTokenAmount);
 
-    const tickSpacing = await ichiVault.tickSpacing();
+    const tickSpacing = await algebraVault.tickSpacing();
     //console.log(tickSpacing.toString());
-    const fee = await ichiVault.fee();
+    const fee = await algebraVault.fee();
     //console.log(fee.toString());
 
-    await ichiVault
+    await algebraVault
       .connect(alice)
       .deposit(ethers.utils.parseEther("4000"), ethers.utils.parseEther("4000"), alice.address);
 
-    await expect(ichiVault.connect(wallet).rebalance(-1800, -1200, -1800, -1200, 0)).to.be.revertedWith(msg3);
-    await expect(ichiVault.connect(wallet).rebalance(1800, 1200, 60, 600, 0)).to.be.revertedWith(msg1);
-    await expect(ichiVault.connect(wallet).rebalance(-1800, -1200, -180, -600, 0)).to.be.revertedWith(msg2);
+    await expect(algebraVault.connect(wallet).rebalance(-1800, -1200, -1800, -1200, 0)).to.be.revertedWith(msg3);
+    await expect(algebraVault.connect(wallet).rebalance(1800, 1200, 60, 600, 0)).to.be.revertedWith(msg1);
+    await expect(algebraVault.connect(wallet).rebalance(-1800, -1200, -180, -600, 0)).to.be.revertedWith(msg2);
 
-    //let afee = await ichiVaultFactory.connect(wallet).ammFee()
-    //let bfee = await ichiVaultFactory.connect(wallet).baseFee()
+    //let afee = await algebraVaultFactory.connect(wallet).ammFee()
+    //let bfee = await algebraVaultFactory.connect(wallet).baseFee()
     //console.log(afee.toString());
     //console.log(bfee.toString());
 
-    await ichiVault.connect(wallet).rebalance(-1800, -1200, 180, 600, 0);
-    const balance0 = await token0.balanceOf(ichiVault.address);
-    const balance1 = await token1.balanceOf(ichiVault.address);
+    await algebraVault.connect(wallet).rebalance(-1800, -1200, 180, 600, 0);
+    const balance0 = await token0.balanceOf(algebraVault.address);
+    const balance1 = await token1.balanceOf(algebraVault.address);
     expect(balance0).to.be.equal(0);
     expect(balance1).to.be.equal(0);
 
     const rebalanceSwapAmount = ethers.utils.parseEther("4000");
-    await expect(ichiVault.connect(wallet).rebalance(1800, 1000, 50, 550, rebalanceSwapAmount)).to.be.revertedWith(
+    await expect(algebraVault.connect(wallet).rebalance(1800, 1000, 50, 550, rebalanceSwapAmount)).to.be.revertedWith(
       msg1,
     );
-    await expect(ichiVault.connect(wallet).rebalance(-1800, 1000, 50, 550, rebalanceSwapAmount)).to.be.revertedWith(
+    await expect(algebraVault.connect(wallet).rebalance(-1800, 1000, 50, 550, rebalanceSwapAmount)).to.be.revertedWith(
       msg1,
     );
-    await expect(ichiVault.connect(wallet).rebalance(-1000, 1800, 50, 550, rebalanceSwapAmount)).to.be.revertedWith(
+    await expect(algebraVault.connect(wallet).rebalance(-1000, 1800, 50, 550, rebalanceSwapAmount)).to.be.revertedWith(
       msg1,
     );
 
-    await expect(ichiVault.connect(wallet).rebalance(-1800, 1200, -50, -550, rebalanceSwapAmount)).to.be.revertedWith(
+    await expect(algebraVault.connect(wallet).rebalance(-1800, 1200, -50, -550, rebalanceSwapAmount)).to.be.revertedWith(
       msg2,
     );
-    await expect(ichiVault.connect(wallet).rebalance(-1800, 1200, -600, -500, rebalanceSwapAmount)).to.be.revertedWith(
+    await expect(algebraVault.connect(wallet).rebalance(-1800, 1200, -600, -500, rebalanceSwapAmount)).to.be.revertedWith(
       msg2,
     );
-    await expect(ichiVault.connect(wallet).rebalance(-1800, 1200, -600, -550, rebalanceSwapAmount)).to.be.revertedWith(
+    await expect(algebraVault.connect(wallet).rebalance(-1800, 1200, -600, -550, rebalanceSwapAmount)).to.be.revertedWith(
       msg2,
     );
   });
 
-  it("ICHIVault - setTwapPeriod", async () => {
-    const msg1 = "IV.setTwapPeriod: missing period";
+  it("AlgebraVault - setTwapPeriod", async () => {
+    const msg1 = "AV.setTwapPeriod: missing period";
 
-    await expect(ichiVault.connect(wallet).setTwapPeriod(0)).to.be.revertedWith(msg1);
+    await expect(algebraVault.connect(wallet).setTwapPeriod(0)).to.be.revertedWith(msg1);
 
-    await expect(ichiVault.connect(wallet).setTwapPeriod(1800))
-      .to.emit(ichiVault, "SetTwapPeriod")
+    await expect(algebraVault.connect(wallet).setTwapPeriod(1800))
+      .to.emit(algebraVault, "SetTwapPeriod")
       .withArgs(wallet.address, 1800);
   });
 
-  it("ICHIVault - setHysteresis", async () => {
-    await expect(ichiVault.connect(wallet).setHysteresis(50)) // 5%
-      .to.emit(ichiVault, "Hysteresis")
+  it("AlgebraVault - setHysteresis", async () => {
+    await expect(algebraVault.connect(wallet).setHysteresis(50)) // 5%
+      .to.emit(algebraVault, "Hysteresis")
       .withArgs(wallet.address, 50);
   });
 
-  it("ICHIVault - setAmmFeeRecipient", async () => {
-    await expect(ichiVault.connect(wallet).setAmmFeeRecipient(NULL_ADDRESS))
-      .to.emit(ichiVault, "AmmFeeRecipient")
+  it("AlgebraVault - setAmmFeeRecipient", async () => {
+    await expect(algebraVault.connect(wallet).setAmmFeeRecipient(NULL_ADDRESS))
+      .to.emit(algebraVault, "AmmFeeRecipient")
       .withArgs(wallet.address, NULL_ADDRESS);
   });
 
-  it("ICHIVault - symbol", async () => {
-    const tx = await ichiVaultFactory.connect(wallet).createICHIVault(token0.address, false, token1.address, true);
+  it("AlgebraVault - symbol", async () => {
+    const tx = await algebraVaultFactory.connect(wallet).createAlgebraVault(token0.address, false, token1.address, true);
 
-    let ichiVaultAddress = await ichiVaultFactory.allVaults(0);
-    ichiVault = (await ethers.getContractAt("ICHIVault", ichiVaultAddress)) as ICHIVault;
+    let algebraVaultAddress = await algebraVaultFactory.allVaults(0);
+    algebraVault = (await ethers.getContractAt("AlgebraVault", algebraVaultAddress)) as AlgebraVault;
 
-    let symbol = await ichiVault.symbol();
+    let symbol = await algebraVault.symbol();
     expect(symbol).to.equal("IV-VEL-0-symbol-symbol");
 
-    ichiVaultAddress = await ichiVaultFactory.allVaults(1);
-    ichiVault = (await ethers.getContractAt("ICHIVault", ichiVaultAddress)) as ICHIVault;
+    algebraVaultAddress = await algebraVaultFactory.allVaults(1);
+    algebraVault = (await ethers.getContractAt("AlgebraVault", algebraVaultAddress)) as AlgebraVault;
 
-    symbol = await ichiVault.symbol();
+    symbol = await algebraVault.symbol();
     expect(symbol).to.equal("IV-VEL-1-symbol-symbol");
   });
 });

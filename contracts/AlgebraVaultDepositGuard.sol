@@ -2,38 +2,38 @@
 
 pragma solidity >=0.8.4;
 
-import { IICHIVaultDepositGuard } from "./interfaces/IICHIVaultDepositGuard.sol";
-import { IICHIVaultFactory } from "./interfaces/IICHIVaultFactory.sol";
-import { IICHIVault } from "./interfaces/IICHIVault.sol";
+import { IAlgebraVaultDepositGuard } from "./interfaces/IAlgebraVaultDepositGuard.sol";
+import { IAlgebraVaultFactory } from "./interfaces/IAlgebraVaultFactory.sol";
+import { IAlgebraVault } from "./interfaces/IAlgebraVault.sol";
 import { IWRAPPED_NATIVE } from "./interfaces/IWRAPPED_NATIVE.sol";
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-contract ICHIVaultDepositGuard is IICHIVaultDepositGuard, ReentrancyGuard {
+contract AlgebraVaultDepositGuard is IAlgebraVaultDepositGuard, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
-    address public immutable override ICHIVaultFactory;
+    address public immutable override AlgebraVaultFactory;
     address public immutable override WRAPPED_NATIVE;
 
     address private constant NULL_ADDRESS = address(0);
 
-    /// @notice Constructs the IICHIVaultDepositGuard contract.
-    /// @param _ICHIVaultFactory The address of the ICHIVaultFactory.
-    constructor(address _ICHIVaultFactory, address _WRAPPED_NATIVE) {
-        require(_ICHIVaultFactory != NULL_ADDRESS, "DG.constructor: zero address");
-        ICHIVaultFactory = _ICHIVaultFactory;
+    /// @notice Constructs the IAlgebraVaultDepositGuard contract.
+    /// @param _AlgebraVaultFactory The address of the AlgebraVaultFactory.
+    constructor(address _AlgebraVaultFactory, address _WRAPPED_NATIVE) {
+        require(_AlgebraVaultFactory != NULL_ADDRESS, "DG.constructor: zero address");
+        AlgebraVaultFactory = _AlgebraVaultFactory;
         WRAPPED_NATIVE = _WRAPPED_NATIVE;
-        emit Deployed(_ICHIVaultFactory, _WRAPPED_NATIVE);
+        emit Deployed(_AlgebraVaultFactory, _WRAPPED_NATIVE);
     }
 
     receive() external payable {
         assert(msg.sender == WRAPPED_NATIVE); // only accept ETH via fallback from the WRAPPED_NATIVE contract
     }
 
-    /// @inheritdoc IICHIVaultDepositGuard
-    function forwardDepositToICHIVault(
+    /// @inheritdoc IAlgebraVaultDepositGuard
+    function forwardDepositToAlgebraVault(
         address vault,
         address vaultDeployer,
         address token,
@@ -44,8 +44,8 @@ contract ICHIVaultDepositGuard is IICHIVaultDepositGuard, ReentrancyGuard {
         vaultTokens = _forwardDeposit(vault, vaultDeployer, token, amount, minimumProceeds, to, false);
     }
 
-    /// @inheritdoc IICHIVaultDepositGuard
-    function forwardNativeDepositToICHIVault(
+    /// @inheritdoc IAlgebraVaultDepositGuard
+    function forwardNativeDepositToAlgebraVault(
         address vault,
         address vaultDeployer,
         uint256 minimumProceeds,
@@ -57,8 +57,8 @@ contract ICHIVaultDepositGuard is IICHIVaultDepositGuard, ReentrancyGuard {
         vaultTokens = _forwardDeposit(vault, vaultDeployer, WRAPPED_NATIVE, nativeAmount, minimumProceeds, to, true);
     }
 
-    /// @inheritdoc IICHIVaultDepositGuard
-    function forwardWithdrawFromICHIVault(
+    /// @inheritdoc IAlgebraVaultDepositGuard
+    function forwardWithdrawFromAlgebraVault(
         address vault,
         address vaultDeployer,
         uint256 shares,
@@ -69,8 +69,8 @@ contract ICHIVaultDepositGuard is IICHIVaultDepositGuard, ReentrancyGuard {
         (amount0, amount1) = _forwardWithdraw(vault, vaultDeployer, shares, to, minAmount0, minAmount1, false);
     }
 
-    /// @inheritdoc IICHIVaultDepositGuard
-    function forwardNativeWithdrawFromICHIVault(
+    /// @inheritdoc IAlgebraVaultDepositGuard
+    function forwardNativeWithdrawFromAlgebraVault(
         address vault,
         address vaultDeployer,
         uint256 shares,
@@ -81,7 +81,7 @@ contract ICHIVaultDepositGuard is IICHIVaultDepositGuard, ReentrancyGuard {
         (amount0, amount1) = _forwardWithdraw(vault, vaultDeployer, shares, to, minAmount0, minAmount1, true);
     }
 
-    /// @inheritdoc IICHIVaultDepositGuard
+    /// @inheritdoc IAlgebraVaultDepositGuard
     function vaultKey(
         address vaultDeployer,
         address token0,
@@ -89,7 +89,7 @@ contract ICHIVaultDepositGuard is IICHIVaultDepositGuard, ReentrancyGuard {
         bool allowToken0,
         bool allowToken1
     ) public view override returns (bytes32 key) {
-        key = IICHIVaultFactory(ICHIVaultFactory).genKey(vaultDeployer, token0, token1, allowToken0, allowToken1);
+        key = IAlgebraVaultFactory(AlgebraVaultFactory).genKey(vaultDeployer, token0, token1, allowToken0, allowToken1);
     }
 
     function _forwardDeposit(
@@ -102,14 +102,14 @@ contract ICHIVaultDepositGuard is IICHIVaultDepositGuard, ReentrancyGuard {
         bool depositNative
     ) private returns (uint256 vaultTokens) {
         _validateRecipient(to);
-        (IICHIVault ichiVault, address token0, address token1) = _validateVault(vault, vaultDeployer, depositNative);
+        (IAlgebraVault algebraVault, address token0, address token1) = _validateVault(vault, vaultDeployer, depositNative);
 
         require(token == token0 || token == token1, "Invalid token");
 
         if (token == token0) {
-            require(ichiVault.allowToken0(), "Token0 deposits not allowed");
+            require(algebraVault.allowToken0(), "Token0 deposits not allowed");
         } else {
-            require(ichiVault.allowToken1(), "Token1 deposits not allowed");
+            require(algebraVault.allowToken1(), "Token1 deposits not allowed");
         }
 
         // if deposit is a native deposit then we don't need to transfer WRAPPED_NATIVE
@@ -123,7 +123,7 @@ contract ICHIVaultDepositGuard is IICHIVaultDepositGuard, ReentrancyGuard {
         uint256 token0Amount = token == token0 ? amount : 0;
         uint256 token1Amount = token == token1 ? amount : 0;
 
-        vaultTokens = ichiVault.deposit(token0Amount, token1Amount, to);
+        vaultTokens = algebraVault.deposit(token0Amount, token1Amount, to);
         require(vaultTokens >= minimumProceeds, "Slippage too great. Try again.");
 
         emit DepositForwarded(msg.sender, vault, token, amount, vaultTokens, to);
@@ -139,7 +139,7 @@ contract ICHIVaultDepositGuard is IICHIVaultDepositGuard, ReentrancyGuard {
         bool withdrawNative
     ) private returns (uint256 amount0, uint256 amount1) {
         _validateRecipient(to);
-        (IICHIVault ichiVault, address token0, address token1) = _validateVault(vault, vaultDeployer, withdrawNative);
+        (IAlgebraVault algebraVault, address token0, address token1) = _validateVault(vault, vaultDeployer, withdrawNative);
 
         // - sender must grant the guard an allowance for the vault share token
         // - the guard can then transfer those share tokens to itself
@@ -148,7 +148,7 @@ contract ICHIVaultDepositGuard is IICHIVaultDepositGuard, ReentrancyGuard {
 
         if (withdrawNative) {
             // the vault temporarily custodies the withdrawn amounts
-            (amount0, amount1) = ichiVault.withdraw(shares, address(this));
+            (amount0, amount1) = algebraVault.withdraw(shares, address(this));
             if (token0 == WRAPPED_NATIVE) {
                 IWRAPPED_NATIVE(WRAPPED_NATIVE).withdraw(amount0);
                 payable(to).transfer(amount0);
@@ -159,7 +159,7 @@ contract ICHIVaultDepositGuard is IICHIVaultDepositGuard, ReentrancyGuard {
                 IERC20(token0).safeTransfer(to, amount0);
             }
         } else {
-            (amount0, amount1) = ichiVault.withdraw(shares, to);
+            (amount0, amount1) = algebraVault.withdraw(shares, to);
         }
 
         require(amount0 >= minAmount0 && amount1 >= minAmount1, "Insufficient out");
@@ -173,11 +173,11 @@ contract ICHIVaultDepositGuard is IICHIVaultDepositGuard, ReentrancyGuard {
         address vault,
         address vaultDeployer,
         bool validateNative
-    ) private view returns (IICHIVault ichiVault, address token0, address token1) {
-        ichiVault = IICHIVault(vault);
+    ) private view returns (IAlgebraVault algebraVault, address token0, address token1) {
+        algebraVault = IAlgebraVault(vault);
 
-        token0 = ichiVault.token0();
-        token1 = ichiVault.token1();
+        token0 = algebraVault.token0();
+        token1 = algebraVault.token1();
 
         if (validateNative) {
             require(token0 == WRAPPED_NATIVE || token1 == WRAPPED_NATIVE, "Native vault");
@@ -187,10 +187,10 @@ contract ICHIVaultDepositGuard is IICHIVaultDepositGuard, ReentrancyGuard {
             vaultDeployer,
             token0,
             token1,
-            ichiVault.allowToken0(),
-            ichiVault.allowToken1()
+            algebraVault.allowToken0(),
+            algebraVault.allowToken1()
         );
 
-        require(IICHIVaultFactory(ICHIVaultFactory).getICHIVault(factoryVaultKey) == vault, "Invalid vault");
+        require(IAlgebraVaultFactory(AlgebraVaultFactory).getAlgebraVault(factoryVaultKey) == vault, "Invalid vault");
     }
 }

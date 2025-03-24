@@ -2,8 +2,8 @@
 
 pragma solidity >=0.8.4;
 
-interface IICHIVault {
-    function ichiVaultFactory() external view returns (address);
+interface IAlgebraVault {
+    function algebraVaultFactory() external view returns (address);
 
     function pool() external view returns (address);
 
@@ -75,7 +75,7 @@ interface IICHIVault {
 
     function setAffiliate(address _affiliate) external;
 
-    event DeployICHIVault(
+    event DeployAlgebraVault(
         address indexed sender,
         address indexed pool,
         bool allowToken0,

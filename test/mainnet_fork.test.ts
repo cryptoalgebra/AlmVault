@@ -2,7 +2,7 @@ import chai from "chai";
 import { expect } from "chai";
 import { ethers } from "hardhat";
 
-import { IAlgebraFactory, IAlgebraPool, ICHIVault, ICHIVaultFactory, ISwapRouter, TestERC20, UV3Math } from "../types";
+import { IAlgebraFactory, IAlgebraPool, AlgebraVault, AlgebraVaultFactory, ISwapRouter, TestERC20, UV3Math } from "../types";
 
 const NULL_ADDRESS = "0x0000000000000000000000000000000000000000";
 
@@ -25,9 +25,9 @@ describe("Vaults on Mainnet Fork", () => {
 
   const routerAddress = "0x327Dd3208f0bCF590A66110aCB6e5e6941A4EfA0";
 
-  let ichiVaultFactory: ICHIVaultFactory;
-  let usdtWbnbVault: ICHIVault;
-  let wbnbFrxethVault: ICHIVault;
+  let algebraVaultFactory: AlgebraVaultFactory;
+  let usdtWbnbVault: AlgebraVault;
+  let wbnbFrxethVault: AlgebraVault;
   let uV3Math: UV3Math;
   let wbnb: TestERC20;
   let usdt: TestERC20;
@@ -39,36 +39,36 @@ describe("Vaults on Mainnet Fork", () => {
     const uV3MathFactory = await ethers.getContractFactory("UV3Math");
     uV3Math = (await uV3MathFactory.deploy()) as UV3Math;
 
-    const ichiVaultDeployer = await ethers.getContractFactory("ICHIVaultDeployer", {
+    const algebraVaultDeployer = await ethers.getContractFactory("AlgebraVaultDeployer", {
       libraries: {
         UV3Math: uV3Math.address,
       },
     });
-    const libICHIVaultDeployer = await ichiVaultDeployer.deploy();
+    const libAlgebraVaultDeployer = await algebraVaultDeployer.deploy();
 
-    const ichiVaultFactoryFactory = await ethers.getContractFactory("ICHIVaultFactory", {
+    const algebraVaultFactoryFactory = await ethers.getContractFactory("AlgebraVaultFactory", {
       libraries: {
-        ICHIVaultDeployer: libICHIVaultDeployer.address,
+        AlgebraVaultDeployer: libAlgebraVaultDeployer.address,
       },
     });
 
-    ichiVaultFactory = (await ichiVaultFactoryFactory.deploy(algebraFactory)) as ICHIVaultFactory;
+    algebraVaultFactory = (await algebraVaultFactoryFactory.deploy(algebraFactory)) as AlgebraVaultFactory;
 
     factory = (await ethers.getContractAt("AlgebraFactory", algebraFactory)) as IAlgebraFactory;
 
     // let [owner, alice] = await ethers.getSigners()
 
-    await ichiVaultFactory.createICHIVault(usdtAddress, false, wbnbAddress, true);
-    await ichiVaultFactory.createICHIVault(wbnbAddress, true, frxethAddress, false);
+    await algebraVaultFactory.createAlgebraVault(usdtAddress, false, wbnbAddress, true);
+    await algebraVaultFactory.createAlgebraVault(wbnbAddress, true, frxethAddress, false);
 
-    const vaultUsdtWbnb = await ichiVaultFactory.genKey(owner.address, usdtAddress, wbnbAddress, false, true);
+    const vaultUsdtWbnb = await algebraVaultFactory.genKey(owner.address, usdtAddress, wbnbAddress, false, true);
     // wbnb is token1 in wbnbFrxeth vault
-    const vaultWbnbFrxeth = await ichiVaultFactory.genKey(owner.address, wbnbAddress, frxethAddress, true, false);
-    const usdtWbnbVaultAddress = await ichiVaultFactory.getICHIVault(vaultUsdtWbnb);
-    const wbnbFrxethVaultAddress = await ichiVaultFactory.getICHIVault(vaultWbnbFrxeth);
+    const vaultWbnbFrxeth = await algebraVaultFactory.genKey(owner.address, wbnbAddress, frxethAddress, true, false);
+    const usdtWbnbVaultAddress = await algebraVaultFactory.getAlgebraVault(vaultUsdtWbnb);
+    const wbnbFrxethVaultAddress = await algebraVaultFactory.getAlgebraVault(vaultWbnbFrxeth);
 
-    usdtWbnbVault = (await ethers.getContractAt("ICHIVault", usdtWbnbVaultAddress)) as ICHIVault;
-    wbnbFrxethVault = (await ethers.getContractAt("ICHIVault", wbnbFrxethVaultAddress)) as ICHIVault;
+    usdtWbnbVault = (await ethers.getContractAt("AlgebraVault", usdtWbnbVaultAddress)) as AlgebraVault;
+    wbnbFrxethVault = (await ethers.getContractAt("AlgebraVault", wbnbFrxethVaultAddress)) as AlgebraVault;
 
     await usdtWbnbVault.setAffiliate(affiliateAddress);
     await usdtWbnbVault.setDepositMax(ethers.utils.parseEther("100000"), ethers.utils.parseEther("100000"));

@@ -3,10 +3,10 @@ pragma solidity >=0.5.0;
 
 interface IVaultSlippageCheckV2 {
     /**
-     * @notice Rebalances an ICHIVault. Detects rebalance risk using hysteresis.
+     * @notice Rebalances an AlgebraVault. Detects rebalance risk using hysteresis.
      *         Reverts calls to gnosis execTransactionFromModule if risky.
      * @param gnosis Address of the Gnosis Safe owning the vault.
-     * @param vault Address of the ICHIVault.
+     * @param vault Address of the AlgebraVault.
      * @param expectedCurrentTick Current operational tick.
      * @param baseLower Lower tick of the base position.
      * @param baseUpper Upper tick of the base position.

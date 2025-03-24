@@ -10,7 +10,7 @@ import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 import { OracleLibrary } from "./OracleLibrary.sol";
-import { IICHIVaultFactory } from "../interfaces/IICHIVaultFactory.sol";
+import { IAlgebraVaultFactory } from "../interfaces/IAlgebraVaultFactory.sol";
 
 library UV3Math {
     /// @dev The minimum value that can be returned from #getSqrtRatioAtTick. Equivalent to getSqrtRatioAtTick(MIN_TICK)
@@ -99,7 +99,7 @@ library UV3Math {
     }
 
     /******************************
-     * ICHIVault specific functions
+     * AlgebraVault specific functions
      ******************************/
 
     /**
@@ -113,7 +113,7 @@ library UV3Math {
         // Format: IV-[ammName]-index-deposit-quote
         return string(abi.encodePacked(
             "IV-",
-            IICHIVaultFactory(msg.sender).ammName(),
+            IAlgebraVaultFactory(msg.sender).ammName(),
             "-",
             Strings.toString(value),
             "-",

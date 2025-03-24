@@ -29,7 +29,7 @@ import {
   INonfungiblePositionManager,
   ISwapRouter
 } from "../../types";
-import { ICHIVaultFactory } from "../../types/contracts/ICHIVaultFactory";
+import { AlgebraVaultFactory } from "../../types/contracts/AlgebraVaultFactory";
 import { UV3Math } from "../../types/contracts/lib/UV3Math";
 import { TestERC20 } from "../../types/contracts/mocks/TestERC20";
 import { TestOracle } from "../../types/contracts/mocks/TestOracle";
@@ -128,47 +128,47 @@ async function tokensFixture(): Promise<TokensFixture> {
   return { token0, token1, token2 };
 }
 
-interface ICHIVaultFactoryFixture {
-  ichiVaultFactory: ICHIVaultFactory;
+interface AlgebraVaultFactoryFixture {
+  algebraVaultFactory: AlgebraVaultFactory;
 }
 
-async function ichiVaultFactoryFixture(
+async function algebraVaultFactoryFixture(
   factory: IAlgebraFactory,
   pluginFactory: IBasePluginV1Factory,
   nft: INonfungiblePositionManager,
-): Promise<ICHIVaultFactoryFixture> {
+): Promise<AlgebraVaultFactoryFixture> {
   const uV3MathFactory = await ethers.getContractFactory("UV3Math");
   const uV3Math = (await uV3MathFactory.deploy()) as UV3Math;
 
-  const ichiVaultDeployer = await ethers.getContractFactory("ICHIVaultDeployer", {
+  const algebraVaultDeployer = await ethers.getContractFactory("AlgebraVaultDeployer", {
     libraries: {
       UV3Math: uV3Math.address,
     },
   });
-  const libICHIVaultDeployer = await ichiVaultDeployer.deploy();
+  const libAlgebraVaultDeployer = await algebraVaultDeployer.deploy();
 
-  const ichiVaultFactoryFactory = await ethers.getContractFactory("ICHIVaultFactory", {
+  const algebraVaultFactoryFactory = await ethers.getContractFactory("AlgebraVaultFactory", {
     libraries: {
-      ICHIVaultDeployer: libICHIVaultDeployer.address,
+      AlgebraVaultDeployer: libAlgebraVaultDeployer.address,
     },
   });
 
-  const ichiVaultFactory = (await ichiVaultFactoryFactory.deploy(
+  const algebraVaultFactory = (await algebraVaultFactoryFactory.deploy(
     factory.address,
     pluginFactory.address,
     nft.address,
     "VEL"
-  )) as ICHIVaultFactory;
+  )) as AlgebraVaultFactory;
 
-  return { ichiVaultFactory };
+  return { algebraVaultFactory };
 }
 
-type ICHIVaultTestFixture = AlgebraFixture & TokensFixture & ICHIVaultFactoryFixture;
+type AlgebraVaultTestFixture = AlgebraFixture & TokensFixture & AlgebraVaultFactoryFixture;
 
-export const ichiVaultTestFixture: Fixture<ICHIVaultTestFixture> = async function (): Promise<ICHIVaultTestFixture> {
+export const algebraVaultTestFixture: Fixture<AlgebraVaultTestFixture> = async function (): Promise<AlgebraVaultTestFixture> {
   const { factory, router, nft, pluginFactory, oracle } = await algebraFixture();
   const { token0, token1, token2 } = await tokensFixture();
-  const { ichiVaultFactory } = await ichiVaultFactoryFixture(factory, pluginFactory, nft);
+  const { algebraVaultFactory } = await algebraVaultFactoryFixture(factory, pluginFactory, nft);
 
   return {
     token0,
@@ -179,6 +179,6 @@ export const ichiVaultTestFixture: Fixture<ICHIVaultTestFixture> = async functio
     nft,
     pluginFactory,
     oracle,
-    ichiVaultFactory,
+    algebraVaultFactory,
   };
 };

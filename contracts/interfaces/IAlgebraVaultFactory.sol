@@ -2,7 +2,7 @@
 
 pragma solidity >=0.8.4;
 
-interface IICHIVaultFactory {
+interface IAlgebraVaultFactory {
     event FeeRecipient(address indexed sender, address feeRecipient);
 
     event AmmFee(address indexed sender, uint256 ammFee);
@@ -11,11 +11,11 @@ interface IICHIVaultFactory {
 
     event BaseFeeSplit(address indexed sender, uint256 baseFeeSplit);
 
-    event DeployICHIVaultFactory(address indexed sender, address algebraFactory, address basePluginFactory);
+    event DeployAlgebraVaultFactory(address indexed sender, address algebraFactory, address basePluginFactory);
 
-    event ICHIVaultCreated(
+    event AlgebraVaultCreated(
         address indexed sender,
-        address ichiVault,
+        address algebraVault,
         address tokenA,
         bool allowTokenA,
         address tokenB,
@@ -23,7 +23,7 @@ interface IICHIVaultFactory {
         uint256 count
     );
 
-    function getICHIVault(bytes32 vaultKey) external view returns(address);
+    function getAlgebraVault(bytes32 vaultKey) external view returns(address);
 
     function algebraFactory() external view returns (address);
 
@@ -49,12 +49,12 @@ interface IICHIVaultFactory {
 
     function setBaseFeeSplit(uint256 _baseFeeSplit) external;
 
-    function createICHIVault(
+    function createAlgebraVault(
         address tokenA,
         bool allowTokenA,
         address tokenB,
         bool allowTokenB
-    ) external returns (address ichiVault);
+    ) external returns (address algebraVault);
 
     function genKey(
         address deployer,

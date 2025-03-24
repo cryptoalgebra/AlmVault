@@ -21,20 +21,20 @@ import {
     IBasePluginV1Factory
 } from "@cryptoalgebra/integral-base-plugin/contracts/interfaces/IBasePluginV1Factory.sol";
 
-import { IICHIVault } from "./interfaces/IICHIVault.sol";
-import { IICHIVaultFactory } from "./interfaces/IICHIVaultFactory.sol";
+import { IAlgebraVault } from "./interfaces/IAlgebraVault.sol";
+import { IAlgebraVaultFactory } from "./interfaces/IAlgebraVaultFactory.sol";
 
 /**
  @notice A Uniswap V2-like interface with fungible liquidity to Uniswap V3
  which allows for either one-sided or two-sided liquidity provision.
- ICHIVaults should be deployed by the ICHIVaultFactory.
- ICHIVaults should not be used with tokens that charge transaction fees.
+ AlgebraVaults should be deployed by the AlgebraVaultFactory.
+ AlgebraVaults should not be used with tokens that charge transaction fees.
  */
-contract ICHIVault is IICHIVault, IAlgebraSwapCallback, ERC20, ReentrancyGuard, Ownable {
+contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyGuard, Ownable {
     using SafeERC20 for IERC20;
     using SafeMath for uint256;
 
-    address public immutable override ichiVaultFactory;
+    address public immutable override algebraVaultFactory;
     address public immutable override pool;
     address public immutable override token0;
     address public immutable override token1;
@@ -60,11 +60,11 @@ contract ICHIVault is IICHIVault, IAlgebraSwapCallback, ERC20, ReentrancyGuard, 
     uint32 public twapPeriod;
 
     /**
-     @notice Creates an ICHIVault instance based on Uniswap V3 pool. Controls liquidity provision types.
+     @notice Creates an AlgebraVault instance based on Uniswap V3 pool. Controls liquidity provision types.
      @param _pool Address of the Uniswap V3 pool for liquidity management.
      @param _allowToken0 Flag indicating if token0 deposits are allowed.
      @param _allowToken1 Flag indicating if token1 deposits are allowed.
-     @param __owner Owner address of the ICHIVault.
+     @param __owner Owner address of the AlgebraVault.
      @param _twapPeriod TWAP period for hysteresis checks.
      @param _vaultIndex Index of the vault in the factory.
      */
@@ -75,12 +75,12 @@ contract ICHIVault is IICHIVault, IAlgebraSwapCallback, ERC20, ReentrancyGuard, 
         address __owner,
         uint32 _twapPeriod,
         uint256 _vaultIndex
-    ) ERC20("ICHI Vault Liquidity", UV3Math.computeIVsymbol(_vaultIndex, _pool, _allowToken0)) {
-        require(_pool != NULL_ADDRESS, "IV.constructor: zero address");
+    ) ERC20("Algebra Vault Liquidity", UV3Math.computeIVsymbol(_vaultIndex, _pool, _allowToken0)) {
+        require(_pool != NULL_ADDRESS, "AV.constructor: zero address");
         require((_allowToken0 && !_allowToken1) ||
-                (_allowToken1 && !_allowToken0), "IV.constructor: must be single sided");
+                (_allowToken1 && !_allowToken0), "AV.constructor: must be single sided");
 
-        ichiVaultFactory = msg.sender;
+        algebraVaultFactory = msg.sender;
         pool = _pool;
         token0 = IAlgebraPool(_pool).token0();
         token1 = IAlgebraPool(_pool).token1();
@@ -97,10 +97,10 @@ contract ICHIVault is IICHIVault, IAlgebraSwapCallback, ERC20, ReentrancyGuard, 
         affiliate = NULL_ADDRESS; // by default there is no affiliate address
 
         // Approve NFT manager to spend tokens
-        IERC20(token0).approve(IICHIVaultFactory(ichiVaultFactory).nftManager(), type(uint256).max);
-        IERC20(token1).approve(IICHIVaultFactory(ichiVaultFactory).nftManager(), type(uint256).max);
+        IERC20(token0).approve(IAlgebraVaultFactory(algebraVaultFactory).nftManager(), type(uint256).max);
+        IERC20(token1).approve(IAlgebraVaultFactory(algebraVaultFactory).nftManager(), type(uint256).max);
 
-        emit DeployICHIVault(msg.sender, _pool, _allowToken0, _allowToken1, __owner, _twapPeriod);
+        emit DeployAlgebraVault(msg.sender, _pool, _allowToken0, _allowToken1, __owner, _twapPeriod);
     }
 
     /// @notice gets baseLower tick from the base position
@@ -145,7 +145,7 @@ contract ICHIVault is IICHIVault, IAlgebraSwapCallback, ERC20, ReentrancyGuard, 
     /// @dev onlyOwner
     /// @param newTwapPeriod new TWAP period
     function setTwapPeriod(uint32 newTwapPeriod) external onlyOwner {
-        require(newTwapPeriod > 0, "IV.setTwapPeriod: missing period");
+        require(newTwapPeriod > 0, "AV.setTwapPeriod: missing period");
         twapPeriod = newTwapPeriod;
         emit SetTwapPeriod(msg.sender, newTwapPeriod);
     }
@@ -180,7 +180,7 @@ contract ICHIVault is IICHIVault, IAlgebraSwapCallback, ERC20, ReentrancyGuard, 
     /// @notice gets NFT manager
     /// @return INonfungiblePositionManager NFT manager
     function _nftManager() internal view returns (INonfungiblePositionManager) {
-        return INonfungiblePositionManager(IICHIVaultFactory(ichiVaultFactory).nftManager());
+        return INonfungiblePositionManager(IAlgebraVaultFactory(algebraVaultFactory).nftManager());
     }
 
     /// @notice collects fees from the position
@@ -314,8 +314,8 @@ contract ICHIVault is IICHIVault, IAlgebraSwapCallback, ERC20, ReentrancyGuard, 
 
     /**
      @notice Distributes shares based on token1 value, adjusted by liquidity shares and pool's AUM in token1.
-     @param deposit0 Token0 amount transferred from sender to ICHIVault.
-     @param deposit1 Token1 amount transferred from sender to ICHIVault.
+     @param deposit0 Token0 amount transferred from sender to AlgebraVault.
+     @param deposit1 Token1 amount transferred from sender to AlgebraVault.
      @param to Recipient address for minted liquidity tokens.
      @return shares Number of liquidity tokens minted for deposit.
      */
@@ -324,11 +324,11 @@ contract ICHIVault is IICHIVault, IAlgebraSwapCallback, ERC20, ReentrancyGuard, 
         uint256 deposit1,
         address to
     ) external override nonReentrant returns (uint256 shares) {
-        require(allowToken0 || deposit0 == 0, "IV.deposit: token0 not allowed");
-        require(allowToken1 || deposit1 == 0, "IV.deposit: token1 not allowed");
-        require(deposit0 > 0 || deposit1 > 0, "IV.deposit: deposits must be > 0");
-        require(deposit0 < deposit0Max && deposit1 < deposit1Max, "IV.deposit: deposits too large");
-        require(to != NULL_ADDRESS && to != address(this), "IV.deposit: to");
+        require(allowToken0 || deposit0 == 0, "AV.deposit: token0 not allowed");
+        require(allowToken1 || deposit1 == 0, "AV.deposit: token1 not allowed");
+        require(deposit0 > 0 || deposit1 > 0, "AV.deposit: deposits must be > 0");
+        require(deposit0 < deposit0Max && deposit1 < deposit1Max, "AV.deposit: deposits too large");
+        require(to != NULL_ADDRESS && to != address(this), "AV.deposit: to");
 
         // Get spot price
         uint256 price = _fetchSpot(token0, token1, currentTick(), PRECISION);
@@ -340,7 +340,7 @@ contract ICHIVault is IICHIVault, IAlgebraSwapCallback, ERC20, ReentrancyGuard, 
         uint256 delta = (price > twap)
             ? price.sub(twap).mul(PRECISION).div(price)
             : twap.sub(price).mul(PRECISION).div(twap);
-        if (delta > hysteresis) require(checkHysteresis(), "IV.deposit: try later");
+        if (delta > hysteresis) require(checkHysteresis(), "AV.deposit: try later");
 
         // Clean positions and collect/distribute fees
         _cleanPositions(true);
@@ -407,7 +407,7 @@ contract ICHIVault is IICHIVault, IAlgebraSwapCallback, ERC20, ReentrancyGuard, 
         ) = _nftManager().positions(positionId);
 
         // should not be happening, safety check
-        require(tokensOwed0 == 0 && tokensOwed1 == 0, "IV.withdraw: tokens owed");
+        require(tokensOwed0 == 0 && tokensOwed1 == 0, "AV.withdraw: tokens owed");
 
         // Calculate proportional liquidity
         uint128 liquidityToDecrease = uint128(uint256(positionLiquidity).mul(shares).div(totalSupply));
@@ -436,7 +436,7 @@ contract ICHIVault is IICHIVault, IAlgebraSwapCallback, ERC20, ReentrancyGuard, 
         }
     }
     /**
-     @notice Redeems shares for a proportion of ICHIVault's AUM, matching the share percentage of total issued.
+     @notice Redeems shares for a proportion of AlgebraVault's AUM, matching the share percentage of total issued.
      @param shares Quantity of liquidity tokens to redeem as pool assets.
      @param to Address receiving the redeemed pool assets.
      @return amount0 Token0 amount received from liquidity token redemption.
@@ -446,11 +446,11 @@ contract ICHIVault is IICHIVault, IAlgebraSwapCallback, ERC20, ReentrancyGuard, 
         uint256 shares,
         address to
     ) external override nonReentrant returns (uint256 amount0, uint256 amount1) {
-        require(shares > 0, "IV.withdraw: shares");
-        require(to != NULL_ADDRESS, "IV.withdraw: to");
+        require(shares > 0, "AV.withdraw: shares");
+        require(to != NULL_ADDRESS, "AV.withdraw: to");
 
         uint256 _totalSupply = totalSupply();
-        require(shares == _totalSupply || _totalSupply >= shares.add(MIN_SHARES), "IV.withdraw: min shares");
+        require(shares == _totalSupply || _totalSupply >= shares.add(MIN_SHARES), "AV.withdraw: min shares");
 
         // Clean positions and collect/distribute fees
         _cleanPositions(true);
@@ -485,7 +485,7 @@ contract ICHIVault is IICHIVault, IAlgebraSwapCallback, ERC20, ReentrancyGuard, 
     }
 
     /**
-     @notice Updates LP positions in the ICHIVault.
+     @notice Updates LP positions in the AlgebraVault.
      @dev First places a base position symmetrically around current price, using one token fully.
      Remaining token forms a single-sided order.
      @param _baseLower Lower tick of the base position.
@@ -504,13 +504,13 @@ contract ICHIVault is IICHIVault, IAlgebraSwapCallback, ERC20, ReentrancyGuard, 
         int24 tickSpacing_ = IAlgebraPool(pool).tickSpacing();
         require(
             _baseLower < _baseUpper && _baseLower % tickSpacing_ == 0 && _baseUpper % tickSpacing_ == 0,
-            "IV.rebalance: base position invalid"
+            "AV.rebalance: base position invalid"
         );
         require(
             _limitLower < _limitUpper && _limitLower % tickSpacing_ == 0 && _limitUpper % tickSpacing_ == 0,
-            "IV.rebalance: limit position invalid"
+            "AV.rebalance: limit position invalid"
         );
-        require(_baseLower != _limitLower || _baseUpper != _limitUpper, "IV.rebalance: identical positions");
+        require(_baseLower != _limitLower || _baseUpper != _limitUpper, "AV.rebalance: identical positions");
 
         // Clean positions and collect/distribute fees
         (uint256 fees0, uint256 fees1) = _cleanPositions(false);
@@ -552,7 +552,7 @@ contract ICHIVault is IICHIVault, IAlgebraSwapCallback, ERC20, ReentrancyGuard, 
     }
 
     /**
-     @notice Collects and distributes fees from ICHIVault's LP positions. Transaction can be paid by anyone.
+     @notice Collects and distributes fees from AlgebraVault's LP positions. Transaction can be paid by anyone.
      @return fees0 Collected fees in token0.
      @return fees1 Collected fees in token1.
      */
@@ -572,8 +572,8 @@ contract ICHIVault is IICHIVault, IAlgebraSwapCallback, ERC20, ReentrancyGuard, 
      @param fees1 fees for token1
      */
     function _distributeFees(uint256 fees0, uint256 fees1) internal {
-        uint256 ammFee = IICHIVaultFactory(ichiVaultFactory).ammFee();
-        uint256 baseFee = IICHIVaultFactory(ichiVaultFactory).baseFee();
+        uint256 ammFee = IAlgebraVaultFactory(algebraVaultFactory).ammFee();
+        uint256 baseFee = IAlgebraVaultFactory(algebraVaultFactory).baseFee();
 
         // Make sure there are always enough fees to distribute
         fees0 = min(fees0, IERC20(token0).balanceOf(address(this)));
@@ -596,8 +596,8 @@ contract ICHIVault is IICHIVault, IAlgebraSwapCallback, ERC20, ReentrancyGuard, 
             // if there is no affiliate 100% of the baseFee should go to feeRecipient
             uint256 baseFeeSplit = (affiliate == NULL_ADDRESS)
                 ? PRECISION
-                : IICHIVaultFactory(ichiVaultFactory).baseFeeSplit();
-            address feeRecipient = IICHIVaultFactory(ichiVaultFactory).feeRecipient();
+                : IAlgebraVaultFactory(algebraVaultFactory).baseFeeSplit();
+            address feeRecipient = IAlgebraVaultFactory(algebraVaultFactory).feeRecipient();
 
             if (fees0 > 0) {
                 uint256 totalFee = fees0.mul(baseFee).div(PRECISION);
@@ -624,11 +624,11 @@ contract ICHIVault is IICHIVault, IAlgebraSwapCallback, ERC20, ReentrancyGuard, 
      @notice Checks if the last price change happened in the current block
      */
     function checkHysteresis() private view returns (bool) {
-        address basePlugin = IBasePluginV1Factory(IICHIVaultFactory(ichiVaultFactory).basePluginFactory()).pluginByPool(
+        address basePlugin = IBasePluginV1Factory(IAlgebraVaultFactory(algebraVaultFactory).basePluginFactory()).pluginByPool(
             pool
         );
         // make sure the base plugin is connected to the pool
-        require(UV3Math.isOracleConnectedToPool(basePlugin, pool), "IV.checkHysteresis: diconnected plugin");
+        require(UV3Math.isOracleConnectedToPool(basePlugin, pool), "AV.checkHysteresis: diconnected plugin");
 
         // get latest timestamp from the plugin
         (, uint32 blockTimestamp) = UV3Math.lastTimepointMetadata(basePlugin);
@@ -695,9 +695,9 @@ contract ICHIVault is IICHIVault, IAlgebraSwapCallback, ERC20, ReentrancyGuard, 
     }
 
     /**
-     @notice Calculates total quantity of token0 and token1 in both positions (and unused in the ICHIVault)
-     @return total0 Quantity of token0 in both positions (and unused in the ICHIVault)
-     @return total1 Quantity of token1 in both positions (and unused in the ICHIVault)
+     @notice Calculates total quantity of token0 and token1 in both positions (and unused in the AlgebraVault)
+     @return total0 Quantity of token0 in both positions (and unused in the AlgebraVault)
+     @return total1 Quantity of token1 in both positions (and unused in the AlgebraVault)
      */
     function getTotalAmounts() public view override returns (uint256 total0, uint256 total1) {
         (, uint256 base0, uint256 base1) = getBasePosition();
@@ -808,7 +808,7 @@ contract ICHIVault is IICHIVault, IAlgebraSwapCallback, ERC20, ReentrancyGuard, 
      */
     function currentTick() public view override returns (int24 tick) {
         (, int24 tick_, , , , bool unlocked_) = IAlgebraPool(pool).globalState();
-        require(unlocked_, "IV.currentTick: the pool is locked");
+        require(unlocked_, "AV.currentTick: the pool is locked");
         tick = tick_;
     }
 
@@ -846,11 +846,11 @@ contract ICHIVault is IICHIVault, IAlgebraSwapCallback, ERC20, ReentrancyGuard, 
         uint256 _amountIn
     ) internal view returns (uint256 amountOut) {
         // Leave twapTick as a int256 to avoid solidity casting
-        address basePlugin = IBasePluginV1Factory(IICHIVaultFactory(ichiVaultFactory).basePluginFactory()).pluginByPool(
+        address basePlugin = IBasePluginV1Factory(IAlgebraVaultFactory(algebraVaultFactory).basePluginFactory()).pluginByPool(
             _pool
         );
         // make sure the base plugin is connected to the pool
-        require(UV3Math.isOracleConnectedToPool(basePlugin, _pool), "IV.checkHysteresis: diconnected plugin");
+        require(UV3Math.isOracleConnectedToPool(basePlugin, _pool), "AV.checkHysteresis: diconnected plugin");
 
         int256 twapTick = UV3Math.consult(basePlugin, _twapPeriod);
         return

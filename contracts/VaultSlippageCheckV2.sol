@@ -4,9 +4,9 @@ pragma solidity >=0.8.4;
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { IAlgebraPool } from "@cryptoalgebra/integral-core/contracts/interfaces/IAlgebraPool.sol";
 import { IGnosisSafe } from "./interfaces/IGnosisSafe.sol";
-import { IICHIVault } from "./interfaces/IICHIVault.sol";
+import { IAlgebraVault } from "./interfaces/IAlgebraVault.sol";
 import { IVaultSlippageCheckV2 } from "./interfaces/IVaultSlippageCheckV2.sol";
-import { IICHIVaultFactory } from "./interfaces/IICHIVaultFactory.sol";
+import { IAlgebraVaultFactory } from "./interfaces/IAlgebraVaultFactory.sol";
 import { Enum } from "./common/Enum.sol";
 import {
     IBasePluginV1Factory
@@ -15,9 +15,9 @@ import { UV3Math } from "./lib/UV3Math.sol";
 
 contract VaultSlippageCheckV2 is Ownable, IVaultSlippageCheckV2 {
     /**
-    @notice rebalances an ICHIVault uses hysteresis to detect if rebalance is risky and reverts calls gnosis execTransactionFromModule
+    @notice rebalances an AlgebraVault uses hysteresis to detect if rebalance is risky and reverts calls gnosis execTransactionFromModule
     @param gnosis Gnosis safe that owns the vault
-    @param vault ICHIVault address
+    @param vault AlgebraVault address
     @param expectedCurrentTick The current tick
     @param baseLower The lower tick of the base position
     @param baseUpper The upper tick of the base position
@@ -46,7 +46,7 @@ contract VaultSlippageCheckV2 is Ownable, IVaultSlippageCheckV2 {
             vault,
             0,
             abi.encodeWithSelector(
-                IICHIVault.rebalance.selector,
+                IAlgebraVault.rebalance.selector,
                 baseLower,
                 baseUpper,
                 limitLower,
@@ -68,8 +68,8 @@ contract VaultSlippageCheckV2 is Ownable, IVaultSlippageCheckV2 {
         int24 expectedTick,
         int24 range
     ) private view returns (bool) {
-        address pool = IICHIVault(vault).pool();
-        address vaultsFactory = IICHIVault(vault).ichiVaultFactory();
+        address pool = IAlgebraVault(vault).pool();
+        address vaultsFactory = IAlgebraVault(vault).algebraVaultFactory();
 
         (, int24 currentTick, , , , ) = IAlgebraPool(pool).globalState();
 
@@ -80,7 +80,7 @@ contract VaultSlippageCheckV2 is Ownable, IVaultSlippageCheckV2 {
         // Return false if the current tick is not within the allowed tick range
         if (!isWithinRange) return false;
 
-        address basePlugin = IBasePluginV1Factory(IICHIVaultFactory(vaultsFactory).basePluginFactory()).pluginByPool(
+        address basePlugin = IBasePluginV1Factory(IAlgebraVaultFactory(vaultsFactory).basePluginFactory()).pluginByPool(
             pool
         );
         // make sure the base plugin is connected to the pool

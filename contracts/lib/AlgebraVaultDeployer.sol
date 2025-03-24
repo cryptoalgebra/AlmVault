@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity >=0.8.4;
 
-import { ICHIVault } from "../ICHIVault.sol";
+import { AlgebraVault } from "../AlgebraVault.sol";
 
-library ICHIVaultDeployer {
-    function createICHIVault(
+library AlgebraVaultDeployer {
+    function createAlgebraVault(
         address pool,
         address token0,
         bool allowToken0,
@@ -12,9 +12,9 @@ library ICHIVaultDeployer {
         bool allowToken1,
         uint32 twapPeriod,
         uint256 vaultIndex
-    ) public returns (address ichiVault) {
-        ichiVault = address(
-            new ICHIVault{ salt: keccak256(abi.encodePacked(msg.sender, token0, allowToken0, token1, allowToken1)) }(
+    ) public returns (address algebraVault) {
+        algebraVault = address(
+            new AlgebraVault{ salt: keccak256(abi.encodePacked(msg.sender, token0, allowToken0, token1, allowToken1)) }(
                 pool,
                 allowToken0,
                 allowToken1,

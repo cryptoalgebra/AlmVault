@@ -2,16 +2,16 @@
 
 pragma solidity >=0.8.4;
 
-interface IICHIVaultDepositGuard {
+interface IAlgebraVaultDepositGuard {
 
     /// @notice Emitted when the contract is deployed.
-    /// @param _ICHIVaultFactory Address of the ICHIVaultFactory.
+    /// @param _AlgebraVaultFactory Address of the AlgebraVaultFactory.
     /// @param _WETH Address of the Wrapped ETH token.
-    event Deployed(address _ICHIVaultFactory, address _WETH);
+    event Deployed(address _AlgebraVaultFactory, address _WETH);
 
-    /// @notice Emitted when a deposit is forwarded to an ICHIVault.
+    /// @notice Emitted when a deposit is forwarded to an AlgebraVault.
     /// @param sender The address initiating the deposit.
-    /// @param vault The ICHIVault receiving the deposit.
+    /// @param vault The AlgebraVault receiving the deposit.
     /// @param token The token being deposited.
     /// @param amount The amount of the token being deposited.
     /// @param shares The amount of shares issued in the vault as a result of the deposit.
@@ -25,24 +25,24 @@ interface IICHIVaultDepositGuard {
         address to
     );
 
-    /// @notice Retrieves the address of the ICHIVaultFactory.
-    /// @return Address of the ICHIVaultFactory.
-    function ICHIVaultFactory() external view returns (address);
+    /// @notice Retrieves the address of the AlgebraVaultFactory.
+    /// @return Address of the AlgebraVaultFactory.
+    function AlgebraVaultFactory() external view returns (address);
 
     /// @notice Retrieves the address of the Wrapped Native Token (e.g., WETH).
     /// @return Address of the Wrapped Native Token.
     function WRAPPED_NATIVE() external view returns (address);
 
-    /// @notice Forwards a deposit to the specified ICHIVault after input validation.
+    /// @notice Forwards a deposit to the specified AlgebraVault after input validation.
     /// @dev Emits a DepositForwarded event upon success.
-    /// @param vault The address of the ICHIVault to deposit into.
+    /// @param vault The address of the AlgebraVault to deposit into.
     /// @param vaultDeployer The address of the vault deployer.
     /// @param token The address of the token being deposited.
     /// @param amount The amount of the token being deposited.
     /// @param minimumProceeds The minimum amount of vault tokens to be received.
     /// @param to The address to receive the vault tokens.
     /// @return vaultTokens The number of vault tokens received.
-    function forwardDepositToICHIVault(
+    function forwardDepositToAlgebraVault(
         address vault,
         address vaultDeployer,
         address token,
@@ -51,22 +51,22 @@ interface IICHIVaultDepositGuard {
         address to
     ) external returns (uint256 vaultTokens);
 
-    /// @notice Forwards a native currency (e.g., ETH) deposit to an ICHIVault.
+    /// @notice Forwards a native currency (e.g., ETH) deposit to an AlgebraVault.
     /// @dev Converts the native currency to Wrapped Native Token before deposit.
-    /// @param vault The address of the ICHIVault to deposit into.
+    /// @param vault The address of the AlgebraVault to deposit into.
     /// @param vaultDeployer The address of the vault deployer.
     /// @param minimumProceeds The minimum amount of vault tokens to be received.
     /// @param to The address to receive the vault tokens.
     /// @return vaultTokens The number of vault tokens received.
-    function forwardNativeDepositToICHIVault(
+    function forwardNativeDepositToAlgebraVault(
         address vault,
         address vaultDeployer,
         uint256 minimumProceeds,
         address to
     ) external payable returns (uint256 vaultTokens);
 
-    /// @notice Forwards a request to withdraw from an ICHIVault.
-    /// @param vault The address of the ICHIVault to withdraw from.
+    /// @notice Forwards a request to withdraw from an AlgebraVault.
+    /// @param vault The address of the AlgebraVault to withdraw from.
     /// @param vaultDeployer The address of the vault deployer.
     /// @param shares The amount of shares to withdraw.
     /// @param to The address to receive the withdrawn tokens.
@@ -74,7 +74,7 @@ interface IICHIVaultDepositGuard {
     /// @param minAmount1 The minimum amount of token1 expected to receive.
     /// @return amount0 The amount of token0 received.
     /// @return amount1 The amount of token1 received.
-    function forwardWithdrawFromICHIVault(
+    function forwardWithdrawFromAlgebraVault(
         address vault,
         address vaultDeployer,
         uint256 shares,
@@ -83,9 +83,9 @@ interface IICHIVaultDepositGuard {
         uint256 minAmount1
     ) external returns (uint256 amount0, uint256 amount1);
 
-    /// @notice Forwards a request to withdraw native currency from an ICHIVault.
+    /// @notice Forwards a request to withdraw native currency from an AlgebraVault.
     /// @dev Converts the Wrapped Native Tokens back to native currency on withdrawal.
-    /// @param vault The address of the ICHIVault to withdraw from.
+    /// @param vault The address of the AlgebraVault to withdraw from.
     /// @param vaultDeployer The address of the vault deployer.
     /// @param shares The amount of shares to withdraw.
     /// @param to The address to receive the withdrawn native currency.
@@ -93,7 +93,7 @@ interface IICHIVaultDepositGuard {
     /// @param minAmount1 The minimum amount of token1 expected to receive.
     /// @return amount0 The amount of token0 received.
     /// @return amount1 The amount of token1 received.
-    function forwardNativeWithdrawFromICHIVault(
+    function forwardNativeWithdrawFromAlgebraVault(
         address vault,
         address vaultDeployer,
         uint256 shares,
