@@ -47,9 +47,9 @@
     "typescript": "^4.9.3"
   },
   "dependencies": {
-    "@cryptoalgebra/integral-base-plugin": "^1.2.0-test7",
-    "@cryptoalgebra/integral-core": "^1.2.0",
-    "@cryptoalgebra/integral-periphery": "^1.2.0",
+    "@cryptoalgebra/integral-base-plugin": "^1.2.1",
+    "@cryptoalgebra/integral-core": "^1.2.1",
+    "@cryptoalgebra/integral-periphery": "^1.2.1",
     "@openzeppelin/contracts": "4.9.3",
     "bignumber.js": "^9.1.2"
   },
