@@ -14,6 +14,10 @@ import {
   abi as SWAP_ROUTER_ABI,
   bytecode as SWAP_ROUTER_BYTECODE,
 } from "@cryptoalgebra/integral-periphery/artifacts/contracts/SwapRouter.sol/SwapRouter.json";
+import {
+  abi as BASE_PLUGIN_FACTORY_ABI,
+  bytecode as BASE_PLUGIN_FACTORY_BYTECODE,
+} from "@cryptoalgebra/integral-base-plugin/artifacts/contracts/BasePluginV1Factory.sol/BasePluginV1Factory.json";
 import { BigNumber } from "@ethersproject/bignumber";
 import { getCreateAddress } from "ethers-v6";
 import { ethers } from "hardhat";
@@ -23,11 +27,7 @@ import {
   IAlgebraPoolDeployer,
   IBasePluginV1Factory,
   INonfungiblePositionManager,
-  ISwapRouter,
-  MockFactory,
-  MockPool,
-  MockTimeAlgebraBasePluginV1,
-  MockTimeDSFactory,
+  ISwapRouter
 } from "../../types";
 import { ICHIVaultFactory } from "../../types/contracts/ICHIVaultFactory";
 import { UV3Math } from "../../types/contracts/lib/UV3Math";
@@ -46,66 +46,6 @@ interface AlgebraFixture {
   oracle: TestOracle;
 }
 
-interface MockFactoryFixture {
-  mockFactory: MockFactory;
-}
-
-async function mockFactoryFixture(): Promise<MockFactoryFixture> {
-  const mockFactoryFactory = await ethers.getContractFactory("MockFactory");
-  const mockFactory = (await mockFactoryFactory.deploy()) as MockFactory;
-
-  return { mockFactory };
-}
-
-interface PluginFixture extends MockFactoryFixture {
-  plugin: MockTimeAlgebraBasePluginV1;
-  mockPluginFactory: MockTimeDSFactory;
-  mockPool: MockPool;
-}
-
-// Monday, October 5, 2020 9:00:00 AM GMT-05:00
-export const TEST_POOL_START_TIME = 1601906400;
-export const TEST_POOL_DAY_BEFORE_START = 1601906400 - 24 * 60 * 60;
-
-export const pluginFixture: Fixture<PluginFixture> = async function (): Promise<PluginFixture> {
-  const { mockFactory } = await mockFactoryFixture();
-  //const { token0, token1, token2 } = await tokensFixture()
-
-  const mockPluginFactoryFactory = await ethers.getContractFactory("MockTimeDSFactory");
-  const mockPluginFactory = (await mockPluginFactoryFactory.deploy(mockFactory.address)) as MockTimeDSFactory;
-
-  const mockPoolFactory = await ethers.getContractFactory("MockPool");
-  const mockPool = (await mockPoolFactory.deploy()) as MockPool;
-
-  await mockPluginFactory.createPlugin(mockPool.address);
-  const pluginAddress = await mockPluginFactory.pluginByPool(mockPool.address);
-
-  const mockDSOperatorFactory = await ethers.getContractFactory("MockTimeAlgebraBasePluginV1");
-  const plugin = mockDSOperatorFactory.attach(pluginAddress) as MockTimeAlgebraBasePluginV1;
-
-  return {
-    plugin,
-    mockPluginFactory,
-    mockPool,
-    mockFactory,
-  };
-};
-
-interface PluginFactoryFixture extends MockFactoryFixture {
-  pluginFactory: IBasePluginV1Factory;
-}
-
-export const pluginFactoryFixture: Fixture<PluginFactoryFixture> = async function (): Promise<PluginFactoryFixture> {
-  const { mockFactory } = await mockFactoryFixture();
-
-  const pluginFactoryFactory = await ethers.getContractFactory("BasePluginV1Factory");
-  const pluginFactory = (await pluginFactoryFactory.deploy(mockFactory.address)) as IBasePluginV1Factory;
-
-  return {
-    pluginFactory,
-    mockFactory,
-  };
-};
 
 async function algebraFixture(): Promise<AlgebraFixture> {
   const [deployer] = await ethers.getSigners();
@@ -122,7 +62,6 @@ async function algebraFixture(): Promise<AlgebraFixture> {
   const factory_c = await factoryFactory.deploy(poolDeployerAddress);
 
   const factory = factory_c as IAlgebraFactory;
-  const vaultAddress = await factory.communityVault();
 
   const poolDeployerFactory = new ethers.ContractFactory(
     ALGEBRA_POOL_DEPLOYER_ABI,
@@ -130,9 +69,12 @@ async function algebraFixture(): Promise<AlgebraFixture> {
     deployer,
   );
 
-  const poolDeployer = (await poolDeployerFactory.deploy(factory.address, vaultAddress)) as IAlgebraPoolDeployer;
+  const poolDeployer = (await poolDeployerFactory.deploy(factory.address)) as IAlgebraPoolDeployer;
 
-  const pluginFactoryFactory = await ethers.getContractFactory("BasePluginV1Factory");
+  // const pluginFactoryFactory = await ethers.getContractFactory("BasePluginV1Factory");
+  // const pluginFactory = (await pluginFactoryFactory.deploy(factory.address)) as IBasePluginV1Factory;
+
+  const pluginFactoryFactory = new ethers.ContractFactory(BASE_PLUGIN_FACTORY_ABI, BASE_PLUGIN_FACTORY_BYTECODE, deployer);
   const pluginFactory = (await pluginFactoryFactory.deploy(factory.address)) as IBasePluginV1Factory;
 
   await factory.setDefaultPluginFactory(pluginFactory.address);
@@ -193,6 +135,7 @@ interface ICHIVaultFactoryFixture {
 async function ichiVaultFactoryFixture(
   factory: IAlgebraFactory,
   pluginFactory: IBasePluginV1Factory,
+  nft: INonfungiblePositionManager,
 ): Promise<ICHIVaultFactoryFixture> {
   const uV3MathFactory = await ethers.getContractFactory("UV3Math");
   const uV3Math = (await uV3MathFactory.deploy()) as UV3Math;
@@ -213,36 +156,19 @@ async function ichiVaultFactoryFixture(
   const ichiVaultFactory = (await ichiVaultFactoryFactory.deploy(
     factory.address,
     pluginFactory.address,
+    nft.address,
     "VEL"
   )) as ICHIVaultFactory;
 
   return { ichiVaultFactory };
 }
 
-type allContractsFixture = AlgebraFixture & TokensFixture;
-
-export const fixture: Fixture<allContractsFixture> = async function (): Promise<allContractsFixture> {
-  const { factory, router, nft, pluginFactory, oracle } = await algebraFixture();
-  const { token0, token1, token2 } = await tokensFixture();
-
-  return {
-    token0,
-    token1,
-    token2,
-    factory,
-    router,
-    nft,
-    pluginFactory,
-    oracle,
-  };
-};
-
 type ICHIVaultTestFixture = AlgebraFixture & TokensFixture & ICHIVaultFactoryFixture;
 
 export const ichiVaultTestFixture: Fixture<ICHIVaultTestFixture> = async function (): Promise<ICHIVaultTestFixture> {
   const { factory, router, nft, pluginFactory, oracle } = await algebraFixture();
   const { token0, token1, token2 } = await tokensFixture();
-  const { ichiVaultFactory } = await ichiVaultFactoryFixture(factory, pluginFactory);
+  const { ichiVaultFactory } = await ichiVaultFactoryFixture(factory, pluginFactory, nft);
 
   return {
     token0,

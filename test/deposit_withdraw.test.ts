@@ -66,12 +66,12 @@ describe("ICHIVault General Functionality", () => {
     // console.log("wallet used to create new ICHIVaults " + wallet.address);
     await ichiVaultFactory.connect(wallet).setFeeRecipient(other.address);
 
-    await factory.createPool(token0.address, token1.address);
+    await factory.createPool(token0.address, token1.address, '0x');
     const poolAddress = await factory.poolByPair(token0.address, token1.address);
     algebraPool = (await ethers.getContractAt("IAlgebraPool", poolAddress)) as IAlgebraPool;
     await algebraPool.initialize(encodePriceSqrt("1", "1"));
 
-    await ichiVaultFactory.connect(wallet).createICHIVault(token0.address, true, token1.address, true);
+    await ichiVaultFactory.connect(wallet).createICHIVault(token0.address, true, token1.address, false);
 
     // adding extra liquidity into pool to make sure there's always
     // someone to swap with
@@ -84,6 +84,7 @@ describe("ICHIVault General Functionality", () => {
     await nft.connect(carol).mint({
       token0: token0.address,
       token1: token1.address,
+      deployer: NULL_ADDRESS,
       tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
       tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
       recipient: carol.address,
@@ -96,7 +97,7 @@ describe("ICHIVault General Functionality", () => {
 
     await network.provider.send("evm_increaseTime", [3600]);
 
-    const vaultKey = await ichiVaultFactory.genKey(wallet.address, token0.address, token1.address, true, true);
+    const vaultKey = await ichiVaultFactory.genKey(wallet.address, token0.address, token1.address, true, false);
     const ichiVaultAddress = await ichiVaultFactory.getICHIVault(vaultKey);
     ichiVault = (await ethers.getContractAt("ICHIVault", ichiVaultAddress)) as ICHIVault;
     await ichiVault.connect(wallet).setAffiliate(bob.address);
@@ -1288,15 +1289,15 @@ describe("ETHUSDT ICHIVault Test", () => {
       ichiVaultTestFixture,
     ));
 
-    await factory.createPool(token0.address, token1.address);
+    await factory.createPool(token0.address, token1.address, '0x');
     const poolAddress = await factory.poolByPair(token0.address, token1.address);
     algebraPool = (await ethers.getContractAt("IAlgebraPool", poolAddress)) as IAlgebraPool;
     // initializing the pool to mimick the tick that an ETH (18 decimals)
     // - USDT (6 decimals) pool would have if ETH were priced at $2500
     await algebraPool.initialize(encodePriceSqrt(2500000000, ethers.utils.parseEther("1")));
-    await ichiVaultFactory.connect(wallet).createICHIVault(token0.address, true, token1.address, true);
+    await ichiVaultFactory.connect(wallet).createICHIVault(token0.address, false, token1.address, true);
 
-    const vaultKey = await ichiVaultFactory.genKey(wallet.address, token0.address, token1.address, true, true);
+    const vaultKey = await ichiVaultFactory.genKey(wallet.address, token0.address, token1.address, false, true);
     const ichiVaultAddress = await ichiVaultFactory.getICHIVault(vaultKey);
     ichiVault = (await ethers.getContractAt("ICHIVault", ichiVaultAddress)) as ICHIVault;
     await ichiVault.connect(wallet).setDepositMax(ethers.utils.parseEther("100000"), ethers.utils.parseEther("100000"));
@@ -1312,6 +1313,7 @@ describe("ETHUSDT ICHIVault Test", () => {
     await nft.connect(user0).mint({
       token0: token0.address,
       token1: token1.address,
+      deployer: NULL_ADDRESS,
       tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
       tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
       recipient: user0.address,
@@ -1336,10 +1338,10 @@ describe("ETHUSDT ICHIVault Test", () => {
     await token0.connect(user1).approve(ichiVault.address, largeTokenAmount);
     await token1.connect(user1).approve(ichiVault.address, largeTokenAmount);
 
-    await ichiVault.connect(user1).deposit(ethers.utils.parseEther("1"), 2500000000, user1.address);
+    await ichiVault.connect(user1).deposit(0, 2500000000, user1.address);
 
     let user1LiquidityBalance = await ichiVault.balanceOf(user1.address);
-    let expectedValue = 5000000000 * MIN_SHARES;
+    let expectedValue = 2500000000 * MIN_SHARES;
     expect(user1LiquidityBalance).to.be.gt(Math.round(expectedValue * 0.999));
     expect(user1LiquidityBalance).to.be.lt(Math.round(expectedValue * 1.001));
 
@@ -1349,9 +1351,9 @@ describe("ETHUSDT ICHIVault Test", () => {
     await token0.connect(user2).approve(ichiVault.address, ethers.utils.parseEther("0.5"));
     await token1.connect(user2).approve(ichiVault.address, 1250000000);
 
-    await ichiVault.connect(user2).deposit(ethers.utils.parseEther("0.5"), 1250000000, user2.address);
+    await ichiVault.connect(user2).deposit(0, 1250000000, user2.address);
     const user2LiquidityBalance = await ichiVault.balanceOf(user2.address);
-    expectedValue = 2500000000 * MIN_SHARES;
+    expectedValue = 2500000000 * MIN_SHARES / 2;
     expect(user2LiquidityBalance).to.be.gt(Math.round(expectedValue * 0.999));
     expect(user2LiquidityBalance).to.be.lt(Math.round(expectedValue * 1.001));
 
@@ -1359,66 +1361,23 @@ describe("ETHUSDT ICHIVault Test", () => {
 
     const user2ethBalance = await token0.balanceOf(user2.address);
     const user2usdtBalance = await token1.balanceOf(user2.address);
-    expect(user2ethBalance).to.be.lt(ethers.utils.parseEther("0.501"));
-    expect(user2ethBalance).to.be.gt(ethers.utils.parseEther("0.499"));
     expect(user2usdtBalance).to.be.lt(1250100000);
     expect(user2usdtBalance).to.be.gt(1249900000);
 
-    // deposit & withdraw liquidity with ETH only
-    await token0.mint(user3.address, ethers.utils.parseEther("0.5"));
-    await token0.connect(user3).approve(ichiVault.address, ethers.utils.parseEther("0.5"));
+    // deposit & withdraw liquidity with USDT only
+    await token1.mint(user3.address, 1250000000);
+    await token1.connect(user3).approve(ichiVault.address, 1250000000);
 
-    await ichiVault.connect(user3).deposit(ethers.utils.parseEther("0.5"), 0, user3.address);
+    await ichiVault.connect(user3).deposit(0, 1250000000, user3.address);
     const user3LiquidityBalance = await ichiVault.balanceOf(user3.address);
-    expect(user3LiquidityBalance).to.be.gt(1249500000 * MIN_SHARES);
-    expect(user3LiquidityBalance).to.be.lt(1250010000 * MIN_SHARES);
+    expect(user3LiquidityBalance).to.be.gt(1249900000 * MIN_SHARES);
+    expect(user3LiquidityBalance).to.be.lt(1250100000 * MIN_SHARES);
 
     await ichiVault.connect(user3).withdraw(user3LiquidityBalance, user3.address);
 
-    const user3ethBalance = await token0.balanceOf(user3.address);
     const user3usdtBalance = await token1.balanceOf(user3.address);
-    expect(user3ethBalance).to.be.lt(ethers.utils.parseEther("0.301"));
-    expect(user3ethBalance).to.be.gt(ethers.utils.parseEther("0.299"));
-    expect(user3usdtBalance).to.be.lt(500100000);
-    expect(user3usdtBalance).to.be.gt(499900000);
-
-    // deposit & withdraw liquidity with USDT overweight
-    const singleSidedUSDTAmount = 1000000000;
-    await token1.mint(user4.address, singleSidedUSDTAmount);
-    await token1.connect(user4).approve(ichiVault.address, singleSidedUSDTAmount);
-
-    await ichiVault.connect(user4).deposit(0, singleSidedUSDTAmount, user4.address);
-    const user4LiquidityBalance = await ichiVault.balanceOf(user4.address);
-    expect(user4LiquidityBalance).to.be.gt(Math.round(singleSidedUSDTAmount * 0.999 * MIN_SHARES));
-    expect(user4LiquidityBalance).to.be.lt(Math.round(singleSidedUSDTAmount * 1.001 * MIN_SHARES));
-
-    await ichiVault.connect(user4).withdraw(user4LiquidityBalance, user4.address);
-
-    const user4ethBalance = await token0.balanceOf(user4.address);
-    const user4usdtBalance = await token1.balanceOf(user4.address);
-    expect(user4ethBalance).to.be.lt(ethers.utils.parseEther("0.201"));
-    expect(user4ethBalance).to.be.gt(ethers.utils.parseEther("0.199"));
-    expect(user4usdtBalance).to.be.lt(500100000);
-    expect(user4usdtBalance).to.be.gt(499900000);
-
-    // add a deposit of just ETH
-    await ichiVault.connect(user1).deposit(ethers.utils.parseEther("1"), 0, user1.address);
-
-    user1LiquidityBalance = await ichiVault.balanceOf(user1.address);
-    expect(user1LiquidityBalance).to.be.gt(7499500000 * MIN_SHARES);
-    expect(user1LiquidityBalance).to.be.lt(7500100000 * MIN_SHARES);
-
-    // deposit & withdraw liquidity with ETH & USDT balanced
-    // deposit & withdraw liquidity with ETH overweight
-    // deposit & withdraw liquidity with USDT overweight
-
-    // add a deposit of just USDT, flipping the balance of the pool to be
-    // overweight USDT
-    await ichiVault.connect(user1).deposit(0, 6500000000, user1.address);
-
-    user1LiquidityBalance = await ichiVault.balanceOf(user1.address);
-    expect(user1LiquidityBalance).to.be.gt(13999500000 * MIN_SHARES);
-    expect(user1LiquidityBalance).to.be.lt(14000010000 * MIN_SHARES);
+    expect(user3usdtBalance).to.be.lt(1250100000);
+    expect(user3usdtBalance).to.be.gt(1249900000);
 
     // deposit & withdraw liquidity with ETH & USDT balanced
     // deposit & withdraw liquidity with ETH overweight
@@ -1459,12 +1418,12 @@ describe("ICHIVault additional coverage tests", () => {
     ));
     await ichiVaultFactory.connect(wallet).setFeeRecipient(other.address);
 
-    await factory.createPool(token0.address, token1.address);
+    await factory.createPool(token0.address, token1.address, '0x');
     const poolAddress = await factory.poolByPair(token0.address, token1.address);
     algebraPool = (await ethers.getContractAt("IAlgebraPool", poolAddress)) as IAlgebraPool;
     await algebraPool.initialize(encodePriceSqrt("1", "1"));
 
-    await ichiVaultFactory.connect(wallet).createICHIVault(token0.address, true, token1.address, true);
+    await ichiVaultFactory.connect(wallet).createICHIVault(token0.address, true, token1.address, false);
 
     await token0.mint(carol.address, giantTokenAmount);
     await token1.mint(carol.address, giantTokenAmount);
@@ -1483,6 +1442,7 @@ describe("ICHIVault additional coverage tests", () => {
     await nft.connect(carol).mint({
       token0: token0.address,
       token1: token1.address,
+      deployer: NULL_ADDRESS,
       tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
       tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
       recipient: carol.address,
@@ -1495,7 +1455,7 @@ describe("ICHIVault additional coverage tests", () => {
 
     await network.provider.send("evm_increaseTime", [3600]);
 
-    const vaultKey = await ichiVaultFactory.genKey(wallet.address, token0.address, token1.address, true, true);
+    const vaultKey = await ichiVaultFactory.genKey(wallet.address, token0.address, token1.address, true, false);
     const ichiVaultAddress = await ichiVaultFactory.getICHIVault(vaultKey);
     ichiVault = (await ethers.getContractAt("ICHIVault", ichiVaultAddress)) as ICHIVault;
     await ichiVault.connect(wallet).setAffiliate(bob.address);

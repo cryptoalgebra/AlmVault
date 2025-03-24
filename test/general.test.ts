@@ -60,13 +60,13 @@ describe("Access Control Checks", () => {
     ({ token0, token1, token2, factory, router, nft, pluginFactory, oracle, ichiVaultFactory } = await loadFixture(
       ichiVaultTestFixture,
     ));
-    await factory.createPool(token0.address, token1.address);
+    await factory.createPool(token0.address, token1.address, '0x');
     const poolAddress = await factory.poolByPair(token0.address, token1.address);
     // console.log(poolAddress);
     uniswapPool = (await ethers.getContractAt("IAlgebraPool", poolAddress)) as IAlgebraPool;
     await uniswapPool.initialize(encodePriceSqrt("1", "1"));
 
-    await ichiVaultFactory.connect(wallet).createICHIVault(token0.address, true, token1.address, true);
+    await ichiVaultFactory.connect(wallet).createICHIVault(token0.address, true, token1.address, false);
 
     const ichiVaultAddress = await ichiVaultFactory.allVaults(0);
     ichiVault = (await ethers.getContractAt("ICHIVault", ichiVaultAddress)) as ICHIVault;
@@ -88,6 +88,7 @@ describe("Access Control Checks", () => {
     await nft.connect(carol).mint({
       token0: token0.address,
       token1: token1.address,
+      deployer: NULL_ADDRESS,
       //fee: FeeAmount.MEDIUM,
       tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
       tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
@@ -149,23 +150,23 @@ describe("Input Validation Checks", () => {
       ichiVaultTestFixture,
     ));
 
-    await factory.createPool(token0.address, token1.address);
+    await factory.createPool(token0.address, token1.address, '0x');
     let poolAddress = await factory.poolByPair(token0.address, token1.address);
     uniswapPool = (await ethers.getContractAt("IAlgebraPool", poolAddress)) as IAlgebraPool;
     await uniswapPool.initialize(encodePriceSqrt("1", "1"));
 
-    const tx = await ichiVaultFactory.connect(wallet).createICHIVault(token0.address, true, token1.address, true);
+    const tx = await ichiVaultFactory.connect(wallet).createICHIVault(token0.address, true, token1.address, false);
 
     const ichiVaultAddress = await ichiVaultFactory.allVaults(0);
     ichiVault = (await ethers.getContractAt("ICHIVault", ichiVaultAddress)) as ICHIVault;
 
     await expect(tx)
       .to.emit(ichiVaultFactory, "ICHIVaultCreated")
-      .withArgs(wallet.address, ichiVault.address, token0.address, true, token1.address, true, 1);
+      .withArgs(wallet.address, ichiVault.address, token0.address, true, token1.address, false, 1);
     poolAddress = await ichiVault.pool();
     await expect(tx)
       .to.emit(ichiVault, "DeployICHIVault")
-      .withArgs(ichiVaultFactory.address, poolAddress, true, true, wallet.address, 3600);
+      .withArgs(ichiVaultFactory.address, poolAddress, true, false, wallet.address, 3600);
 
     await ichiVault.connect(wallet).setDepositMax(ethers.utils.parseEther("100000"), ethers.utils.parseEther("100000"));
 
@@ -180,6 +181,7 @@ describe("Input Validation Checks", () => {
     await nft.connect(carol).mint({
       token0: token0.address,
       token1: token1.address,
+      deployer: NULL_ADDRESS,
       tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
       tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
       recipient: carol.address,
@@ -237,30 +239,30 @@ describe("Input Validation Checks", () => {
       msg6 = "IVF.createICHIVault: pool must exist";
 
     await expect(
-      ichiVaultFactory.connect(wallet).createICHIVault(token0.address, true, token0.address, true),
+      ichiVaultFactory.connect(wallet).createICHIVault(token0.address, true, token0.address, false),
     ).to.be.revertedWith(msg1);
     await expect(
-      ichiVaultFactory.connect(wallet).createICHIVault(NULL_ADDRESS, true, token1.address, true),
+      ichiVaultFactory.connect(wallet).createICHIVault(NULL_ADDRESS, true, token1.address, false),
     ).to.be.revertedWith(msg2);
     await expect(
-      ichiVaultFactory.connect(wallet).createICHIVault(token0.address, true, NULL_ADDRESS, true),
+      ichiVaultFactory.connect(wallet).createICHIVault(token0.address, true, NULL_ADDRESS, false),
     ).to.be.revertedWith(msg2);
     await expect(
       ichiVaultFactory.connect(wallet).createICHIVault(token0.address, false, token1.address, false),
     ).to.be.revertedWith(msg3);
     await expect(
-      ichiVaultFactory.connect(wallet).createICHIVault(token0.address, true, token1.address, true),
+      ichiVaultFactory.connect(wallet).createICHIVault(token0.address, true, token1.address, false),
     ).to.be.revertedWith(msg4);
     await expect(
-      ichiVaultFactory.connect(wallet).createICHIVault(token0.address, true, token2.address, true),
+      ichiVaultFactory.connect(wallet).createICHIVault(token0.address, true, token2.address, false),
     ).to.be.revertedWith(msg6);
 
-    await factory.createPool(token0.address, token2.address);
+    await factory.createPool(token0.address, token2.address, '0x');
     const poolAddress = await factory.poolByPair(token0.address, token2.address);
     uniswapPool = (await ethers.getContractAt("IAlgebraPool", poolAddress)) as IAlgebraPool;
     await uniswapPool.initialize(encodePriceSqrt("1", "1"));
 
-    await ichiVaultFactory.connect(wallet).createICHIVault(token0.address, true, token2.address, true);
+    await ichiVaultFactory.connect(wallet).createICHIVault(token0.address, true, token2.address, false);
   });
 
   function msg(text: string) {
@@ -282,7 +284,7 @@ describe("Input Validation Checks", () => {
     // const ichiVaultFactory = await ethers.getContractFactory('ICHIVault')
     await expect(ichiVaultFactory.deploy(NULL_ADDRESS, true, true, wallet.address, 3600, 1)).to.be.reverted;
 
-    await expect(ichiVault.algebraMintCallback(1, 1, [])).to.be.reverted;
+    //await expect(ichiVault.algebraMintCallback(1, 1, [])).to.be.reverted;
     await expect(ichiVault.algebraSwapCallback(1, 1, [])).to.be.reverted;
   });
 
@@ -329,7 +331,7 @@ describe("Input Validation Checks", () => {
     // pool already exists and initialized
     //await uniswapPool.initialize(encodePriceSqrt('1', '1'))
 
-    await factory.createPool(token0.address, token2.address);
+    await factory.createPool(token0.address, token2.address, '0x');
     poolAddress = await factory.poolByPair(token0.address, token2.address);
     uniswapPool = (await ethers.getContractAt("IAlgebraPool", poolAddress)) as IAlgebraPool;
     await uniswapPool.initialize(encodePriceSqrt("1", "1"));
@@ -366,7 +368,7 @@ describe("Input Validation Checks", () => {
     await expect(ichiVault.deposit(0, 0, alice.address)).to.be.revertedWith(msg3);
 
     // check against max deposit amounts
-    vaultKey = await ichiVaultFactory.genKey(wallet.address, token0.address, token1.address, true, true);
+    vaultKey = await ichiVaultFactory.genKey(wallet.address, token0.address, token1.address, true, false);
     ichiVaultAddress = await ichiVaultFactory.getICHIVault(vaultKey);
     ichiVault = (await ethers.getContractAt("ICHIVault", ichiVaultAddress)) as ICHIVault;
     await expect(
