@@ -45,10 +45,10 @@ contract AlgebraVaultFactory is IAlgebraVaultFactory, ReentrancyGuard, Ownable {
                 string memory _ammName) {
         require(_algebraFactory != NULL_ADDRESS &&
                 _basePluginFactory != NULL_ADDRESS &&
-                _nftManager != NULL_ADDRESS, "IVF.constructor: zero address");
+                _nftManager != NULL_ADDRESS, "AVF.constructor: zero address");
         require(
             _algebraFactory == IBasePluginV1Factory(_basePluginFactory).algebraFactory(),
-            "IVF.constructor: factories mismatch"
+            "AVF.constructor: factories mismatch"
         );
         algebraFactory = _algebraFactory;
         basePluginFactory = _basePluginFactory;
@@ -76,28 +76,28 @@ contract AlgebraVaultFactory is IAlgebraVaultFactory, ReentrancyGuard, Ownable {
         address tokenB,
         bool allowTokenB
     ) external override onlyOwner nonReentrant returns (address algebraVault) {
-        require(tokenA != tokenB, "IVF.createAlgebraVault: identical tokens");
+        require(tokenA != tokenB, "AVF.createAlgebraVault: identical tokens");
 
         (address token0, address token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
         (bool allowToken0, bool allowToken1) = tokenA < tokenB
             ? (allowTokenA, allowTokenB)
             : (allowTokenB, allowTokenA);
 
-        require(token0 != NULL_ADDRESS, "IVF.createAlgebraVault: zero address");
-        require(allowTokenA || allowTokenB, "IVF.createAlgebraVault: no allowed tokens");
+        require(token0 != NULL_ADDRESS, "AVF.createAlgebraVault: zero address");
+        require(allowTokenA || allowTokenB, "AVF.createAlgebraVault: no allowed tokens");
 
         require(
             getAlgebraVault[genKey(msg.sender, token0, token1, allowToken0, allowToken1)] == NULL_ADDRESS,
-            "IVF.createAlgebraVault: vault exists"
+            "AVF.createAlgebraVault: vault exists"
         );
 
         address pool = IAlgebraFactory(algebraFactory).poolByPair(tokenA, tokenB);
 
-        require(pool != NULL_ADDRESS, "IVF.createAlgebraVault: pool must exist");
+        require(pool != NULL_ADDRESS, "AVF.createAlgebraVault: pool must exist");
 
         (, , , , , bool unlocked) = IAlgebraPool(pool).globalState();
 
-        require(unlocked, "IVF.createAlgebraVault: pool is locked");
+        require(unlocked, "AVF.createAlgebraVault: pool is locked");
 
         algebraVault = AlgebraVaultDeployer.createAlgebraVault(
             pool,
@@ -123,7 +123,7 @@ contract AlgebraVaultFactory is IAlgebraVaultFactory, ReentrancyGuard, Ownable {
      @param _feeRecipient The fee recipient account address
      */
     function setFeeRecipient(address _feeRecipient) external override onlyOwner {
-        require(_feeRecipient != NULL_ADDRESS, "IVF.setFeeRecipient: zero address");
+        require(_feeRecipient != NULL_ADDRESS, "AVF.setFeeRecipient: zero address");
         feeRecipient = _feeRecipient;
         emit FeeRecipient(msg.sender, _feeRecipient);
     }
@@ -134,7 +134,7 @@ contract AlgebraVaultFactory is IAlgebraVaultFactory, ReentrancyGuard, Ownable {
      @param _ammFee Fee percentage taken from the pool's accumulated swap fees.
      */
     function setAmmFee(uint256 _ammFee) external override onlyOwner {
-        require(baseFee.add(_ammFee) <= PRECISION, "IVF.setAmmFee: fees must be <= 10**18");
+        require(baseFee.add(_ammFee) <= PRECISION, "AVF.setAmmFee: fees must be <= 10**18");
         ammFee = _ammFee;
         emit AmmFee(msg.sender, _ammFee);
     }
@@ -145,7 +145,7 @@ contract AlgebraVaultFactory is IAlgebraVaultFactory, ReentrancyGuard, Ownable {
      @param _baseFee Fee percentage taken from the pool's accumulated swap fees.
      */
     function setBaseFee(uint256 _baseFee) external override onlyOwner {
-        require(ammFee.add(_baseFee) <= PRECISION, "IVF.setBaseFee: fees must be <= 10**18");
+        require(ammFee.add(_baseFee) <= PRECISION, "AVF.setBaseFee: fees must be <= 10**18");
         baseFee = _baseFee;
         emit BaseFee(msg.sender, _baseFee);
     }
@@ -157,7 +157,7 @@ contract AlgebraVaultFactory is IAlgebraVaultFactory, ReentrancyGuard, Ownable {
      @param _baseFeeSplit Fee split ratio between feeRecipient and affiliate accounts.
      */
     function setBaseFeeSplit(uint256 _baseFeeSplit) external override onlyOwner {
-        require(_baseFeeSplit <= PRECISION, "IVF.setBaseFeeSplit: must be <= 10**18");
+        require(_baseFeeSplit <= PRECISION, "AVF.setBaseFeeSplit: must be <= 10**18");
         baseFeeSplit = _baseFeeSplit;
         emit BaseFeeSplit(msg.sender, _baseFeeSplit);
     }

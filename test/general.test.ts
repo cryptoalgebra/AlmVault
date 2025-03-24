@@ -196,11 +196,11 @@ describe("Input Validation Checks", () => {
   });
 
   it("AlgebraVaultFactory - misc", async () => {
-    const msg1 = "IVF.constructor: zero address",
-      msg2 = "IVF.setFeeRecipient: zero address",
-      msg3 = "IVF.setBaseFee: fees must be <= 10**18",
-      msg4 = "IVF.setAmmFee: fees must be <= 10**18",
-      msg5 = "IVF.setBaseFeeSplit: must be <= 10**18";
+    const msg1 = "AVF.constructor: zero address",
+      msg2 = "AVF.setFeeRecipient: zero address",
+      msg3 = "AVF.setBaseFee: fees must be <= 10**18",
+      msg4 = "AVF.setAmmFee: fees must be <= 10**18",
+      msg5 = "AVF.setBaseFeeSplit: must be <= 10**18";
 
     const uV3MathFactory = await ethers.getContractFactory("UV3Math");
     const uV3Math = (await uV3MathFactory.deploy()) as UV3Math;
@@ -232,11 +232,11 @@ describe("Input Validation Checks", () => {
   });
 
   it("AlgebraVaultFactory - createAlgebraVault", async () => {
-    const msg1 = "IVF.createAlgebraVault: identical tokens",
-      msg2 = "IVF.createAlgebraVault: zero address",
-      msg3 = "IVF.createAlgebraVault: no allowed tokens",
-      msg4 = "IVF.createAlgebraVault: vault exists",
-      msg6 = "IVF.createAlgebraVault: pool must exist";
+    const msg1 = "AVF.createAlgebraVault: identical tokens",
+      msg2 = "AVF.createAlgebraVault: zero address",
+      msg3 = "AVF.createAlgebraVault: no allowed tokens",
+      msg4 = "AVF.createAlgebraVault: vault exists",
+      msg6 = "AVF.createAlgebraVault: pool must exist";
 
     await expect(
       algebraVaultFactory.connect(wallet).createAlgebraVault(token0.address, true, token0.address, false),
