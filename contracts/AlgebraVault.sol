@@ -488,7 +488,7 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         require(tokensOwed0 == 0 && tokensOwed1 == 0, "AV.withdraw: tokens owed");
 
         // Calculate proportional liquidity
-        uint128 liquidityToDecrease = uint128(uint256(adjustedLiquidity).mul(shares).div(totalSupply));
+        uint128 liquidityToDecrease = uint128(uint256(positionLiquidity).mul(shares).div(totalSupply));
 
         if (liquidityToDecrease > 0) {
             // Decrease liquidity
