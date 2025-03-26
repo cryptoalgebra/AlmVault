@@ -57,7 +57,8 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
     address constant NULL_ADDRESS = address(0);
     uint256 constant MIN_SHARES = 1000;
 
-    uint32 public twapPeriod;
+    uint32 public override twapPeriod;
+    uint32 public override auxTwapPeriod;
 
     /**
      @notice Creates an AlgebraVault instance based on Uniswap V3 pool. Controls liquidity provision types.
@@ -87,6 +88,7 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         allowToken0 = _allowToken0;
         allowToken1 = _allowToken1;
         twapPeriod = _twapPeriod;
+        auxTwapPeriod = _twapPeriod / 4; // default value is a quarter of the TWAP period
 
         transferOwnership(__owner);
 
@@ -144,25 +146,37 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
     /// @notice sets TWAP period for hysteresis checks
     /// @dev onlyOwner
     /// @param newTwapPeriod new TWAP period
-    function setTwapPeriod(uint32 newTwapPeriod) external onlyOwner {
+    function setTwapPeriod(uint32 newTwapPeriod) external override onlyOwner {
         require(newTwapPeriod > 0, "AV.setTwapPeriod: missing period");
         twapPeriod = newTwapPeriod;
         emit SetTwapPeriod(msg.sender, newTwapPeriod);
+    }
+
+    /// @notice sets auxiliary TWAP period for hysteresis checks
+    /// @dev onlyOwner
+    /// @dev aux TWAP could be set to 0 to avoid an additional check
+    /// @param newAuxTwapPeriod new auxiliary TWAP period
+    function setAuxTwapPeriod(uint32 newAuxTwapPeriod) external override onlyOwner {
+        auxTwapPeriod = newAuxTwapPeriod;
+        emit SetAuxTwapPeriod(msg.sender, newAuxTwapPeriod);
     }
 
     /// @notice collects fees and tokens from the positions and burns the NFTs
     /// @param positionId NFT position ID
     function _dismantlePosition(uint256 positionId) internal {
         if (positionId != 0) {
-            _nftManager().decreaseLiquidity(
-                INonfungiblePositionManager.DecreaseLiquidityParams({
-                    tokenId: positionId,
-                    liquidity: _getPositionLiquidity(positionId),
-                    amount0Min: 0,
-                    amount1Min: 0,
-                    deadline: block.timestamp
-                })
-            );
+            uint128 positionLiquidity = _getPositionLiquidity(positionId);
+            if (positionLiquidity > 0) {
+                _nftManager().decreaseLiquidity(
+                    INonfungiblePositionManager.DecreaseLiquidityParams({
+                        tokenId: positionId,
+                        liquidity: positionLiquidity,
+                        amount0Min: 0,
+                        amount1Min: 0,
+                        deadline: block.timestamp
+                    })
+                );
+            }
 
             _nftManager().collect(
                 INonfungiblePositionManager.CollectParams({
@@ -312,6 +326,61 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         limitPositionId = _mintPosition(_limitLower, _limitUpper, amount0Desired, amount1Desired);
     }
 
+    /** @notice Helper function to get the most conservative price
+     @param spot Current spot price
+     @param twap TWAP price
+     @param auxTwap Auxiliary TWAP price
+     @param isPool Flag indicating if the valuation is for the pool or deposit
+     @return price Most conservative price
+    */
+    function _getConservativePrice(
+        uint256 spot,
+        uint256 twap,
+        uint256 auxTwap,
+        bool isPool
+    ) internal view returns (uint256) {
+        if (isPool) {
+            // For pool valuation, use highest price to be conservative
+            if (auxTwapPeriod > 0) {
+                return max(max(spot, twap), auxTwap);
+            }
+            return max(spot, twap);
+        } else {
+            // For deposit valuation, use lowest price to be conservative
+            if (auxTwapPeriod > 0) {
+                return min(min(spot, twap), auxTwap);
+            }
+            return min(spot, twap);
+        }
+    }
+
+    /**
+     @notice Helper function to check price manipulation
+     @param price Current spot price
+     @param twap TWAP price
+     @param auxTwap Auxiliary TWAP price
+    */
+    function _checkPriceManipulation(
+        uint256 price,
+        uint256 twap,
+        uint256 auxTwap
+    ) internal view {
+        uint256 delta = (price > twap)
+            ? price.sub(twap).mul(PRECISION).div(price)
+            : twap.sub(price).mul(PRECISION).div(twap);
+
+        if (auxTwapPeriod > 0) {
+            uint256 auxDelta = (price > auxTwap)
+                ? price.sub(auxTwap).mul(PRECISION).div(price)
+                : auxTwap.sub(price).mul(PRECISION).div(auxTwap);
+
+            if (delta > hysteresis || auxDelta > hysteresis)
+                require(checkHysteresis(), "AV.deposit: try later");
+        } else if (delta > hysteresis) {
+            require(checkHysteresis(), "AV.deposit: try later");
+        }
+    }
+
     /**
      @notice Distributes shares based on token1 value, adjusted by liquidity shares and pool's AUM in token1.
      @param deposit0 Token0 amount transferred from sender to AlgebraVault.
@@ -336,17 +405,24 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         // Get TWAP price
         uint256 twap = _fetchTwap(pool, token0, token1, twapPeriod, PRECISION);
 
+        // Get aux TWAP price if aux period is set (otherwise set it equal to the TWAP price)
+        uint256 auxTwap = auxTwapPeriod > 0
+            ? _fetchTwap(pool, token0, token1, auxTwapPeriod, PRECISION)
+            : twap;
+
         // Check price manipulation
-        uint256 delta = (price > twap)
-            ? price.sub(twap).mul(PRECISION).div(price)
-            : twap.sub(price).mul(PRECISION).div(twap);
-        if (delta > hysteresis) require(checkHysteresis(), "AV.deposit: try later");
+        _checkPriceManipulation(price, twap, auxTwap);
 
         // Clean positions and collect/distribute fees
         _cleanPositions(true);
 
         // Get total amounts including current positions with updated fees
         (uint256 pool0, uint256 pool1) = getTotalAmounts();
+
+        uint256 _totalSupply = totalSupply();
+
+        // this should not happen, safety check against withdrawal fees overflowing both positions
+        require(pool0 > 0 || pool1 > 0 || _totalSupply == 0, "AV.deposit: empty");
 
         // Transfer tokens from depositor
         if (deposit0 > 0) {
@@ -357,14 +433,16 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         }
 
         // Calculate share value in token1
-        uint256 deposit0PricedInToken1 = deposit0.mul((price < twap) ? price : twap).div(PRECISION);
+        uint256 priceForDeposit = _getConservativePrice(price, twap, auxTwap, false);
+        uint256 deposit0PricedInToken1 = deposit0.mul(priceForDeposit).div(PRECISION);
 
         // Calculate shares to mint
         shares = deposit1.add(deposit0PricedInToken1);
 
-        if (totalSupply() != 0) {
-            uint256 pool0PricedInToken1 = pool0.mul((price > twap) ? price : twap).div(PRECISION);
-            shares = shares.mul(totalSupply()).div(pool0PricedInToken1.add(pool1));
+        if (_totalSupply != 0) {
+            uint256 priceForPool = _getConservativePrice(price, twap, auxTwap, true);
+            uint256 pool0PricedInToken1 = pool0.mul(priceForPool).div(PRECISION);
+            shares = shares.mul(_totalSupply).div(pool0PricedInToken1.add(pool1));
         } else {
             shares = shares.mul(MIN_SHARES);
         }
@@ -410,7 +488,7 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         require(tokensOwed0 == 0 && tokensOwed1 == 0, "AV.withdraw: tokens owed");
 
         // Calculate proportional liquidity
-        uint128 liquidityToDecrease = uint128(uint256(positionLiquidity).mul(shares).div(totalSupply));
+        uint128 liquidityToDecrease = uint128(uint256(adjustedLiquidity).mul(shares).div(totalSupply));
 
         if (liquidityToDecrease > 0) {
             // Decrease liquidity
@@ -566,6 +644,11 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         return a < b ? a : b;
     }
 
+    /// @notice max function
+    function max(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a < b ? b : a;
+    }
+
     /**
      @notice Sends portion of swap fees to ammFeeRecepient, feeRecipient and affiliate.
      @param fees0 fees for token0
@@ -624,11 +707,7 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
      @notice Checks if the last price change happened in the current block
      */
     function checkHysteresis() private view returns (bool) {
-        address basePlugin = IBasePluginV1Factory(IAlgebraVaultFactory(algebraVaultFactory).basePluginFactory()).pluginByPool(
-            pool
-        );
-        // make sure the base plugin is connected to the pool
-        require(UV3Math.isOracleConnectedToPool(basePlugin, pool), "AV.checkHysteresis: diconnected plugin");
+        address basePlugin = _getBasePluginFromPool();
 
         // get latest timestamp from the plugin
         (, uint32 blockTimestamp) = UV3Math.lastTimepointMetadata(basePlugin);
@@ -846,11 +925,7 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         uint256 _amountIn
     ) internal view returns (uint256 amountOut) {
         // Leave twapTick as a int256 to avoid solidity casting
-        address basePlugin = IBasePluginV1Factory(IAlgebraVaultFactory(algebraVaultFactory).basePluginFactory()).pluginByPool(
-            _pool
-        );
-        // make sure the base plugin is connected to the pool
-        require(UV3Math.isOracleConnectedToPool(basePlugin, _pool), "AV.checkHysteresis: diconnected plugin");
+        address basePlugin = _getBasePluginFromPool();
 
         int256 twapTick = UV3Math.consult(basePlugin, _twapPeriod);
         return
@@ -871,21 +946,17 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
      */
     function algebraSwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data) external override {
         require(msg.sender == address(pool), "cb2");
-        address payer = abi.decode(data, (address));
 
         if (amount0Delta > 0) {
-            if (payer == address(this)) {
-                IERC20(token0).safeTransfer(msg.sender, uint256(amount0Delta));
-            } else {
-                IERC20(token0).safeTransferFrom(payer, msg.sender, uint256(amount0Delta));
-            }
+            IERC20(token0).safeTransfer(msg.sender, uint256(amount0Delta));
         } else if (amount1Delta > 0) {
-            if (payer == address(this)) {
-                IERC20(token1).safeTransfer(msg.sender, uint256(amount1Delta));
-            } else {
-                IERC20(token1).safeTransferFrom(payer, msg.sender, uint256(amount1Delta));
-            }
+            IERC20(token1).safeTransfer(msg.sender, uint256(amount1Delta));
         }
     }
 
+    function _getBasePluginFromPool() private view returns (address basePlugin) {
+        basePlugin = IAlgebraPool(pool).plugin();
+        // make sure the base plugin is connected to the pool
+        require(UV3Math.isOracleConnectedToPool(basePlugin, pool), "AV: diconnected plugin");
+    }
 }
