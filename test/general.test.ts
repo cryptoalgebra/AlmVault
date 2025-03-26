@@ -506,12 +506,12 @@ describe("Input Validation Checks", () => {
     algebraVault = (await ethers.getContractAt("AlgebraVault", algebraVaultAddress)) as AlgebraVault;
 
     let symbol = await algebraVault.symbol();
-    expect(symbol).to.equal("IV-VEL-0-symbol-symbol");
+    expect(symbol).to.equal("AV-VEL-0-symbol-symbol");
 
     algebraVaultAddress = await algebraVaultFactory.allVaults(1);
     algebraVault = (await ethers.getContractAt("AlgebraVault", algebraVaultAddress)) as AlgebraVault;
 
     symbol = await algebraVault.symbol();
-    expect(symbol).to.equal("IV-VEL-1-symbol-symbol");
+    expect(symbol).to.equal("AV-VEL-1-symbol-symbol");
   });
 });

@@ -106,13 +106,13 @@ library UV3Math {
      @dev Computes a unique vault's symbol for vaults created through Ramses factory.
      @param value index of the vault to be created
      */
-    function computeIVsymbol(uint256 value, address pool, bool allowToken0) public view returns (string memory) {
+    function computeAVsymbol(uint256 value, address pool, bool allowToken0) public view returns (string memory) {
         IAlgebraPool algebraPool = IAlgebraPool(pool);
         string memory token0Symbol = ERC20(algebraPool.token0()).symbol();
         string memory token1Symbol = ERC20(algebraPool.token1()).symbol();
-        // Format: IV-[ammName]-index-deposit-quote
+        // Format: AV-[ammName]-index-deposit-quote
         return string(abi.encodePacked(
-            "IV-",
+            "AV-",
             IAlgebraVaultFactory(msg.sender).ammName(),
             "-",
             Strings.toString(value),

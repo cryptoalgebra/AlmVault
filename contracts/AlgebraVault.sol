@@ -76,7 +76,7 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         address __owner,
         uint32 _twapPeriod,
         uint256 _vaultIndex
-    ) ERC20("Algebra Vault Liquidity", UV3Math.computeIVsymbol(_vaultIndex, _pool, _allowToken0)) {
+    ) ERC20("Algebra Vault Liquidity", UV3Math.computeAVsymbol(_vaultIndex, _pool, _allowToken0)) {
         require(_pool != NULL_ADDRESS, "AV.constructor: zero address");
         require((_allowToken0 && !_allowToken1) ||
                 (_allowToken1 && !_allowToken0), "AV.constructor: must be single sided");
