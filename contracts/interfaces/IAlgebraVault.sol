@@ -43,6 +43,10 @@ interface IAlgebraVault {
 
     function hysteresis() external view returns (uint256);
 
+    function twapPeriod() external view returns (uint32);
+
+    function auxTwapPeriod() external view returns (uint32);
+
     function getTotalAmounts() external view returns (uint256, uint256);
 
     function getBasePosition() external view returns (uint128, uint256, uint256);
@@ -75,6 +79,10 @@ interface IAlgebraVault {
 
     function setAffiliate(address _affiliate) external;
 
+    function setTwapPeriod(uint32 newTwapPeriod) external;
+
+    function setAuxTwapPeriod(uint32 newAuxTwapPeriod) external;
+
     event DeployAlgebraVault(
         address indexed sender,
         address indexed pool,
@@ -85,6 +93,8 @@ interface IAlgebraVault {
     );
 
     event SetTwapPeriod(address sender, uint32 newTwapPeriod);
+
+    event SetAuxTwapPeriod(address sender, uint32 newAuxTwapPeriod);
 
     event Deposit(address indexed sender, address indexed to, uint256 shares, uint256 amount0, uint256 amount1);
 

@@ -22,7 +22,6 @@ contract AlgebraVaultFactory is IAlgebraVaultFactory, ReentrancyGuard, Ownable {
     uint256 constant PRECISION = 10 ** 18;
     uint32 constant DEFAULT_TWAP_PERIOD = 60 minutes;
     address public immutable override algebraFactory;
-    address public immutable override basePluginFactory;
     address public immutable override nftManager;
     string public override ammName;
 
@@ -37,28 +36,20 @@ contract AlgebraVaultFactory is IAlgebraVaultFactory, ReentrancyGuard, Ownable {
     /**
      @notice creates an instance of AlgebraVaultFactory
      @param _algebraFactory Algebra Integral factory
-     @param _basePluginFactory Algebra Integral Base Plugin factory
      */
     constructor(address _algebraFactory,
-                address _basePluginFactory,
                 address _nftManager,
                 string memory _ammName) {
         require(_algebraFactory != NULL_ADDRESS &&
-                _basePluginFactory != NULL_ADDRESS &&
                 _nftManager != NULL_ADDRESS, "AVF.constructor: zero address");
-        require(
-            _algebraFactory == IBasePluginV1Factory(_basePluginFactory).algebraFactory(),
-            "AVF.constructor: factories mismatch"
-        );
         algebraFactory = _algebraFactory;
-        basePluginFactory = _basePluginFactory;
         nftManager = _nftManager;
         ammName = _ammName;
         feeRecipient = msg.sender;
         ammFee = DEFAULT_AMM_FEE;
         baseFee = DEFAULT_BASE_FEE;
         baseFeeSplit = DEFAULT_BASE_FEE_SPLIT;
-        emit DeployAlgebraVaultFactory(msg.sender, _algebraFactory, _basePluginFactory);
+        emit DeployAlgebraVaultFactory(msg.sender, _algebraFactory);
     }
 
     /**

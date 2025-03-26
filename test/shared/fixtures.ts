@@ -134,7 +134,6 @@ interface AlgebraVaultFactoryFixture {
 
 async function algebraVaultFactoryFixture(
   factory: IAlgebraFactory,
-  pluginFactory: IBasePluginV1Factory,
   nft: INonfungiblePositionManager,
 ): Promise<AlgebraVaultFactoryFixture> {
   const uV3MathFactory = await ethers.getContractFactory("UV3Math");
@@ -155,7 +154,6 @@ async function algebraVaultFactoryFixture(
 
   const algebraVaultFactory = (await algebraVaultFactoryFactory.deploy(
     factory.address,
-    pluginFactory.address,
     nft.address,
     "VEL"
   )) as AlgebraVaultFactory;
@@ -168,7 +166,7 @@ type AlgebraVaultTestFixture = AlgebraFixture & TokensFixture & AlgebraVaultFact
 export const algebraVaultTestFixture: Fixture<AlgebraVaultTestFixture> = async function (): Promise<AlgebraVaultTestFixture> {
   const { factory, router, nft, pluginFactory, oracle } = await algebraFixture();
   const { token0, token1, token2 } = await tokensFixture();
-  const { algebraVaultFactory } = await algebraVaultFactoryFixture(factory, pluginFactory, nft);
+  const { algebraVaultFactory } = await algebraVaultFactoryFixture(factory, nft);
 
   return {
     token0,

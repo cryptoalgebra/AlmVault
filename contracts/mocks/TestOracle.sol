@@ -36,15 +36,14 @@ contract TestOracle is ITestOracle {
 
     /**
      @notice returns equivalent _tokenOut for _amountIn, _tokenIn using TWAP price
-     @param _algebraVaultFactory factory
      @param _pool Uniswap V3 pool address to be used for price checking
      @param _token0 token the input amount is in
      @param _token1 token for the output amount
      @param price price of 1e36 of token0 in token1
      */
-    function twapPrice(address _algebraVaultFactory, address _pool, address _token0, address _token1)
+    function twapPrice(address _pool, address _token0, address _token1)
         external view override returns (uint256 price) {
-        price = _fetchTwap(_algebraVaultFactory, _pool, _token0, _token1, TWAP_PERIOD, PRECISION);
+        price = _fetchTwap(_pool, _token0, _token1, TWAP_PERIOD, PRECISION);
     }
 
     /**
@@ -75,7 +74,6 @@ contract TestOracle is ITestOracle {
 
     /**
      @notice returns equivalent _tokenOut for _amountIn, _tokenIn using TWAP price
-     @param _algebraVaultFactory factory
      @param _pool Uniswap V3 pool address to be used for price checking
      @param _tokenIn token the input amount is in
      @param _tokenOut token for the output amount
@@ -84,20 +82,15 @@ contract TestOracle is ITestOracle {
      @param amountOut equivalent anount in _tokenOut
      */
     function _fetchTwap(
-        address _algebraVaultFactory,
         address _pool,
         address _tokenIn,
         address _tokenOut,
         uint32 _twapPeriod,
         uint256 _amountIn
     ) internal view returns (uint256 amountOut) {
-        // Leave twapTick as a int256 to avoid solidity casting
-        address basePlugin =
-            IBasePluginV1Factory(IAlgebraVaultFactory(_algebraVaultFactory).basePluginFactory()).pluginByPool(
-                _pool
-        );
+        address basePlugin = IAlgebraPool(_pool).plugin();
         // make sure the base plugin is connected to the pool
-        require(UV3Math.isOracleConnectedToPool(basePlugin, _pool), "AV.checkHysteresis: diconnected plugin");
+        require(UV3Math.isOracleConnectedToPool(basePlugin, _pool), "AV: diconnected plugin");
 
         int256 twapTick = UV3Math.consult(basePlugin, _twapPeriod);
         return

@@ -11,7 +11,7 @@ interface IAlgebraVaultFactory {
 
     event BaseFeeSplit(address indexed sender, uint256 baseFeeSplit);
 
-    event DeployAlgebraVaultFactory(address indexed sender, address algebraFactory, address basePluginFactory);
+    event DeployAlgebraVaultFactory(address indexed sender, address algebraFactory);
 
     event AlgebraVaultCreated(
         address indexed sender,
@@ -26,8 +26,6 @@ interface IAlgebraVaultFactory {
     function getAlgebraVault(bytes32 vaultKey) external view returns(address);
 
     function algebraFactory() external view returns (address);
-
-    function basePluginFactory() external view returns (address);
 
     function nftManager() external view returns (address);
 
