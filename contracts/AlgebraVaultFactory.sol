@@ -10,7 +10,6 @@ import {
     IBasePluginV1Factory
 } from "@cryptoalgebra/integral-base-plugin/contracts/interfaces/IBasePluginV1Factory.sol";
 import { IAlgebraPool } from "@cryptoalgebra/integral-core/contracts/interfaces/IAlgebraPool.sol";
-import { SafeMath } from "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 contract AlgebraVaultFactory is IAlgebraVaultFactory, ReentrancyGuard, AccessControl {
     bytes32 public constant override MANAGER_ROLE = keccak256("MANAGER_ROLE");

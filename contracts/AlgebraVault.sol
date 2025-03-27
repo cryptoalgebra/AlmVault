@@ -420,11 +420,11 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         uint256 price = _fetchSpot(token0, token1, currentTick(), PRECISION);
 
         // Get TWAP price
-        uint256 twap = _fetchTwap(pool, token0, token1, twapPeriod, PRECISION);
+        uint256 twap = _fetchTwap(token0, token1, twapPeriod, PRECISION);
 
         // Get aux TWAP price if aux period is set (otherwise set it equal to the TWAP price)
         uint256 auxTwap = auxTwapPeriod > 0
-            ? _fetchTwap(pool, token0, token1, auxTwapPeriod, PRECISION)
+            ? _fetchTwap(token0, token1, auxTwapPeriod, PRECISION)
             : twap;
 
         // Check price manipulation
@@ -937,7 +937,6 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
 
     /**
      @notice returns equivalent _tokenOut for _amountIn, _tokenIn using TWAP price
-     @param _pool Uniswap V3 pool address to be used for price checking
      @param _tokenIn token the input amount is in
      @param _tokenOut token for the output amount
      @param _twapPeriod the averaging time period
@@ -945,7 +944,6 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
      @return amountOut equivalent anount in _tokenOut
      */
     function _fetchTwap(
-        address _pool,
         address _tokenIn,
         address _tokenOut,
         uint32 _twapPeriod,
@@ -969,9 +967,8 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
      @dev this is where the payer transfers required token0 and token1 amounts
      @param amount0Delta required amount of token0
      @param amount1Delta required amount of token1
-     @param data encoded payer's address
      */
-    function algebraSwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data) external override {
+    function algebraSwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata) external override {
         require(msg.sender == address(pool), "cb2");
 
         if (amount0Delta > 0) {
