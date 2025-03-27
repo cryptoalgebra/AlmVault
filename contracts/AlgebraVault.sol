@@ -786,7 +786,7 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
      @param _deposit0Max The maximum amount of token0 allowed in a deposit
      @param _deposit1Max The maximum amount of token1 allowed in a deposit
      */
-    function setDepositMax(uint256 _deposit0Max, uint256 _deposit1Max) external override onlyManager {
+    function setDepositMax(uint256 _deposit0Max, uint256 _deposit1Max) external override onlyRebalancerOrRebalanceManager {
         deposit0Max = _deposit0Max;
         deposit1Max = _deposit1Max;
         emit DepositMax(msg.sender, _deposit0Max, _deposit1Max);
