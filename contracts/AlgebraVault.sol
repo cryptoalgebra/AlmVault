@@ -6,7 +6,7 @@ import { SafeMath } from "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 import { UV3Math } from "./lib/UV3Math.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
@@ -30,7 +30,7 @@ import { IAlgebraVaultFactory } from "./interfaces/IAlgebraVaultFactory.sol";
  AlgebraVaults should be deployed by the AlgebraVaultFactory.
  AlgebraVaults should not be used with tokens that charge transaction fees.
  */
-contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyGuard, Ownable {
+contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using SafeMath for uint256;
 
@@ -43,6 +43,7 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
 
     address public override ammFeeRecipient;
     address public override affiliate;
+    address public override rebalanceManager;
 
     // Position tracking
     uint256 public override basePositionId;
@@ -60,12 +61,31 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
     uint32 public override twapPeriod;
     uint32 public override auxTwapPeriod;
 
+    function _checkManager() private view {
+        require(IAccessControl(algebraVaultFactory).hasRole(
+            IAlgebraVaultFactory(algebraVaultFactory).MANAGER_ROLE(),
+            msg.sender
+        ), "AV.onlyManager not allowed");
+    }
+
+    modifier onlyManager() {
+        _checkManager();
+        _;
+    }
+
+    modifier onlyRebalancerOrRebalanceManager() {
+        require(IAccessControl(algebraVaultFactory).hasRole(
+            IAlgebraVaultFactory(algebraVaultFactory).REBALANCER_ROLE(),
+            msg.sender
+        ) || rebalanceManager == msg.sender, "AV.onlyRebalancerOrRebalanceManager not allowed");
+        _;
+    }
+
     /**
      @notice Creates an AlgebraVault instance based on Uniswap V3 pool. Controls liquidity provision types.
      @param _pool Address of the Uniswap V3 pool for liquidity management.
      @param _allowToken0 Flag indicating if token0 deposits are allowed.
      @param _allowToken1 Flag indicating if token1 deposits are allowed.
-     @param __owner Owner address of the AlgebraVault.
      @param _twapPeriod TWAP period for hysteresis checks.
      @param _vaultIndex Index of the vault in the factory.
      */
@@ -73,7 +93,6 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         address _pool,
         bool _allowToken0,
         bool _allowToken1,
-        address __owner,
         uint32 _twapPeriod,
         uint256 _vaultIndex
     ) ERC20("Algebra Vault Liquidity", UV3Math.computeAVsymbol(_vaultIndex, _pool, _allowToken0)) {
@@ -90,8 +109,6 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         twapPeriod = _twapPeriod;
         auxTwapPeriod = _twapPeriod / 4; // default value is a quarter of the TWAP period
 
-        transferOwnership(__owner);
-
         hysteresis = PRECISION.div(PERCENT).div(2); // 0.5% threshold
         deposit0Max = type(uint256).max; // max uint256
         deposit1Max = type(uint256).max; // max uint256
@@ -102,7 +119,7 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         IERC20(token0).approve(IAlgebraVaultFactory(algebraVaultFactory).nftManager(), type(uint256).max);
         IERC20(token1).approve(IAlgebraVaultFactory(algebraVaultFactory).nftManager(), type(uint256).max);
 
-        emit DeployAlgebraVault(msg.sender, _pool, _allowToken0, _allowToken1, __owner, _twapPeriod);
+        emit DeployAlgebraVault(msg.sender, _pool, _allowToken0, _allowToken1, _twapPeriod);
     }
 
     /// @notice gets baseLower tick from the base position
@@ -138,25 +155,25 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
     }
 
     /// @notice resets allowances for the NFT manager
-    function resetAllowances() external override onlyOwner {
+    function resetAllowances() external override onlyManager {
         IERC20(token0).approve(address(_nftManager()), type(uint256).max);
         IERC20(token1).approve(address(_nftManager()), type(uint256).max);
     }
 
     /// @notice sets TWAP period for hysteresis checks
-    /// @dev onlyOwner
+    /// @dev onlyManager
     /// @param newTwapPeriod new TWAP period
-    function setTwapPeriod(uint32 newTwapPeriod) external override onlyOwner {
+    function setTwapPeriod(uint32 newTwapPeriod) external override onlyManager {
         require(newTwapPeriod > 0, "AV.setTwapPeriod: missing period");
         twapPeriod = newTwapPeriod;
         emit SetTwapPeriod(msg.sender, newTwapPeriod);
     }
 
     /// @notice sets auxiliary TWAP period for hysteresis checks
-    /// @dev onlyOwner
+    /// @dev onlyManager
     /// @dev aux TWAP could be set to 0 to avoid an additional check
     /// @param newAuxTwapPeriod new auxiliary TWAP period
-    function setAuxTwapPeriod(uint32 newAuxTwapPeriod) external override onlyOwner {
+    function setAuxTwapPeriod(uint32 newAuxTwapPeriod) external override onlyManager {
         auxTwapPeriod = newAuxTwapPeriod;
         emit SetAuxTwapPeriod(msg.sender, newAuxTwapPeriod);
     }
@@ -578,7 +595,7 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         int24 _limitLower,
         int24 _limitUpper,
         int256 swapQuantity
-    ) external override nonReentrant onlyOwner {
+    ) external override nonReentrant onlyRebalancerOrRebalanceManager {
         int24 tickSpacing_ = IAlgebraPool(pool).tickSpacing();
         require(
             _baseLower < _baseUpper && _baseLower % tickSpacing_ == 0 && _baseUpper % tickSpacing_ == 0,
@@ -728,38 +745,48 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
      @dev Accessible only by the owner.
      @param _hysteresis Hysteresis threshold value.
      */
-    function setHysteresis(uint256 _hysteresis) external override onlyOwner {
+    function setHysteresis(uint256 _hysteresis) external override onlyManager {
         hysteresis = _hysteresis;
         emit Hysteresis(msg.sender, _hysteresis);
     }
 
     /**
      @notice Sets the AMM fee recipient account address, where portion of the collected swap fees will be distributed
-     @dev onlyOwner
+     @dev onlyManager
      @param _ammFeeRecipient The AMM fee recipient account address
      */
-    function setAmmFeeRecipient(address _ammFeeRecipient) external override onlyOwner {
+    function setAmmFeeRecipient(address _ammFeeRecipient) external override onlyManager {
         ammFeeRecipient = _ammFeeRecipient;
         emit AmmFeeRecipient(msg.sender, _ammFeeRecipient);
     }
 
     /**
      @notice Sets the affiliate account address where portion of the collected swap fees will be distributed
-     @dev onlyOwner
+     @dev onlyManager
      @param _affiliate The affiliate account address
      */
-    function setAffiliate(address _affiliate) external override onlyOwner {
+    function setAffiliate(address _affiliate) external override onlyManager {
         affiliate = _affiliate;
         emit Affiliate(msg.sender, _affiliate);
     }
 
     /**
+     @notice Sets the rebalance manager address which will be allowed to call rebalance() function
+     @dev onlyManager
+     @param _rebalanceManager The rebalance manager address
+     */
+    function setRebalanceManager(address _rebalanceManager) external override onlyManager {
+        rebalanceManager = _rebalanceManager;
+        emit RebalanceManager(msg.sender, _rebalanceManager);
+    }
+
+    /**
      @notice Sets the maximum token0 and token1 amounts the contract allows in a deposit
-     @dev onlyOwner
+     @dev onlyManager
      @param _deposit0Max The maximum amount of token0 allowed in a deposit
      @param _deposit1Max The maximum amount of token1 allowed in a deposit
      */
-    function setDepositMax(uint256 _deposit0Max, uint256 _deposit1Max) external override onlyOwner {
+    function setDepositMax(uint256 _deposit0Max, uint256 _deposit1Max) external override onlyManager {
         deposit0Max = _deposit0Max;
         deposit1Max = _deposit1Max;
         emit DepositMax(msg.sender, _deposit0Max, _deposit1Max);

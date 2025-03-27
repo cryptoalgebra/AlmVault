@@ -3,7 +3,7 @@ pragma solidity >=0.8.4;
 
 import { IAlgebraVaultFactory } from "./interfaces/IAlgebraVaultFactory.sol";
 import { IAlgebraFactory } from "@cryptoalgebra/integral-core/contracts/interfaces/IAlgebraFactory.sol";
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import { AlgebraVaultDeployer } from "./lib/AlgebraVaultDeployer.sol";
 import {
@@ -12,8 +12,9 @@ import {
 import { IAlgebraPool } from "@cryptoalgebra/integral-core/contracts/interfaces/IAlgebraPool.sol";
 import { SafeMath } from "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
-contract AlgebraVaultFactory is IAlgebraVaultFactory, ReentrancyGuard, Ownable {
-    using SafeMath for uint256;
+contract AlgebraVaultFactory is IAlgebraVaultFactory, ReentrancyGuard, AccessControl {
+    bytes32 public constant override MANAGER_ROLE = keccak256("MANAGER_ROLE");
+    bytes32 public constant override REBALANCER_ROLE = keccak256("REBALANCER_ROLE");
 
     address constant NULL_ADDRESS = address(0);
     uint256 constant DEFAULT_AMM_FEE = 0; // 0%
@@ -49,6 +50,11 @@ contract AlgebraVaultFactory is IAlgebraVaultFactory, ReentrancyGuard, Ownable {
         ammFee = DEFAULT_AMM_FEE;
         baseFee = DEFAULT_BASE_FEE;
         baseFeeSplit = DEFAULT_BASE_FEE_SPLIT;
+
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(MANAGER_ROLE, msg.sender);
+        _grantRole(REBALANCER_ROLE, msg.sender);
+
         emit DeployAlgebraVaultFactory(msg.sender, _algebraFactory);
     }
 
@@ -66,7 +72,7 @@ contract AlgebraVaultFactory is IAlgebraVaultFactory, ReentrancyGuard, Ownable {
         bool allowTokenA,
         address tokenB,
         bool allowTokenB
-    ) external override onlyOwner nonReentrant returns (address algebraVault) {
+    ) external override onlyRole(MANAGER_ROLE) nonReentrant returns (address algebraVault) {
         require(tokenA != tokenB, "AVF.createAlgebraVault: identical tokens");
 
         (address token0, address token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
@@ -110,10 +116,9 @@ contract AlgebraVaultFactory is IAlgebraVaultFactory, ReentrancyGuard, Ownable {
 
     /**
      @notice Sets the fee recipient account address, where portion of the collected swap fees will be distributed
-     @dev onlyOwner
      @param _feeRecipient The fee recipient account address
      */
-    function setFeeRecipient(address _feeRecipient) external override onlyOwner {
+    function setFeeRecipient(address _feeRecipient) external override onlyRole(MANAGER_ROLE) {
         require(_feeRecipient != NULL_ADDRESS, "AVF.setFeeRecipient: zero address");
         feeRecipient = _feeRecipient;
         emit FeeRecipient(msg.sender, _feeRecipient);
@@ -121,22 +126,20 @@ contract AlgebraVaultFactory is IAlgebraVaultFactory, ReentrancyGuard, Ownable {
 
     /**
      @notice Sets the fee percentage taken from pool's swap fees, allocated to the AMM for external incentives.
-     @dev Accessible only by the owner.
      @param _ammFee Fee percentage taken from the pool's accumulated swap fees.
      */
-    function setAmmFee(uint256 _ammFee) external override onlyOwner {
-        require(baseFee.add(_ammFee) <= PRECISION, "AVF.setAmmFee: fees must be <= 10**18");
+    function setAmmFee(uint256 _ammFee) external override onlyRole(MANAGER_ROLE) {
+        require(baseFee + _ammFee <= PRECISION, "AVF.setAmmFee: fees must be <= 10**18");
         ammFee = _ammFee;
         emit AmmFee(msg.sender, _ammFee);
     }
 
     /**
      @notice Sets the fee percentage taken from pool's swap fees, distributed between feeRecipient and affiliates.
-     @dev Accessible only by the owner.
      @param _baseFee Fee percentage taken from the pool's accumulated swap fees.
      */
-    function setBaseFee(uint256 _baseFee) external override onlyOwner {
-        require(ammFee.add(_baseFee) <= PRECISION, "AVF.setBaseFee: fees must be <= 10**18");
+    function setBaseFee(uint256 _baseFee) external override onlyRole(MANAGER_ROLE) {
+        require(ammFee + _baseFee <= PRECISION, "AVF.setBaseFee: fees must be <= 10**18");
         baseFee = _baseFee;
         emit BaseFee(msg.sender, _baseFee);
     }
@@ -144,10 +147,9 @@ contract AlgebraVaultFactory is IAlgebraVaultFactory, ReentrancyGuard, Ownable {
     /**
      @notice Sets the fee split ratio between feeRecipient and affiliate accounts. Ratio format:
      (baseFeeSplit)/(100 - baseFeeSplit). E.g., for a 20/80 split, set baseFeeSplit to 20.
-     @dev Accessible only by the owner.
      @param _baseFeeSplit Fee split ratio between feeRecipient and affiliate accounts.
      */
-    function setBaseFeeSplit(uint256 _baseFeeSplit) external override onlyOwner {
+    function setBaseFeeSplit(uint256 _baseFeeSplit) external override onlyRole(MANAGER_ROLE) {
         require(_baseFeeSplit <= PRECISION, "AVF.setBaseFeeSplit: must be <= 10**18");
         baseFeeSplit = _baseFeeSplit;
         emit BaseFeeSplit(msg.sender, _baseFeeSplit);
