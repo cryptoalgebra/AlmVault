@@ -23,6 +23,10 @@ interface IAlgebraVaultFactory {
         uint256 count
     );
 
+    function MANAGER_ROLE() external view returns (bytes32);
+
+    function REBALANCER_ROLE() external view returns (bytes32);
+
     function getAlgebraVault(bytes32 vaultKey) external view returns(address);
 
     function algebraFactory() external view returns (address);

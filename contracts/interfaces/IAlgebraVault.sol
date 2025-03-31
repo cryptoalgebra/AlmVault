@@ -23,6 +23,8 @@ interface IAlgebraVault {
 
     function affiliate() external view returns (address);
 
+    function rebalanceManager() external view returns (address);
+
     function baseLower() external view returns (int24);
 
     function baseUpper() external view returns (int24);
@@ -79,6 +81,8 @@ interface IAlgebraVault {
 
     function setAffiliate(address _affiliate) external;
 
+    function setRebalanceManager(address _rebalanceManager) external;
+
     function setTwapPeriod(uint32 newTwapPeriod) external;
 
     function setAuxTwapPeriod(uint32 newAuxTwapPeriod) external;
@@ -88,7 +92,6 @@ interface IAlgebraVault {
         address indexed pool,
         bool allowToken0,
         bool allowToken1,
-        address owner,
         uint256 twapPeriod
     );
 
@@ -118,4 +121,6 @@ interface IAlgebraVault {
     event AmmFeeRecipient(address indexed sender, address ammFeeRecipient);
 
     event Affiliate(address indexed sender, address affiliate);
+
+    event RebalanceManager(address indexed sender, address rebalanceManager);
 }

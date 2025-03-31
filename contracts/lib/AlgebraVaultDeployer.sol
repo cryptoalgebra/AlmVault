@@ -18,7 +18,6 @@ library AlgebraVaultDeployer {
                 pool,
                 allowToken0,
                 allowToken1,
-                msg.sender,
                 twapPeriod,
                 vaultIndex
             )

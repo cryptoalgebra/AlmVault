@@ -1,11 +1,14 @@
 import "@nomicfoundation/hardhat-toolbox";
 import "hardhat-contract-sizer";
 import "@nomiclabs/hardhat-etherscan";
-import { config as dotenvConfig } from "dotenv";
 import "hardhat-deploy";
 import type { HardhatUserConfig } from "hardhat/config";
-import type { NetworkUserConfig } from "hardhat/types";
-import { resolve } from "path";
+import path from "path";
+
+const env = require('dotenv').config({ path: path.resolve(__dirname, '.env') });
+
+const { MNEMONIC, BASE_TESTNET_API_KEY } =
+  env.parsed || {};
 
 const config: HardhatUserConfig = {
   solidity: {
@@ -19,6 +22,28 @@ const config: HardhatUserConfig = {
   },
   typechain: {
     outDir: "types",
+  },
+  networks: {
+    baseTestnet: {
+      url: `https://sepolia.base.org`,
+      chainId: 84532,
+      accounts: [`0x${MNEMONIC || '1000000000000000000000000000000000000000000000000000000000000000'}`],
+    },
+  },
+  etherscan: {
+    apiKey: {
+      baseTestnet: BASE_TESTNET_API_KEY
+    },
+    customChains: [
+      {
+        network: 'baseTestnet',
+        chainId: 84532,
+        urls: {
+          apiURL: 'https://api-sepolia.basescan.org/api',
+          browserURL: 'https://sepolia.basescan.org/',
+        },
+      },
+    ]
   }
 };
 
