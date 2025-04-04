@@ -1,18 +1,26 @@
-import {ethers} from "hardhat";
-import { UV3Math, AlgebraVaultFactory } from "../types";
+import { AlgebraVaultFactory } from "../types";
 
 const hre = require("hardhat");
 
 async function main() {
+    const constructorArgs = [
+        "0x50246Cba8e8186E4c75a06e844BFDdA87395114d", // Vault Factory
+        "0x4200000000000000000000000000000000000006",
+    ]
+
     const AlgebraVaultDepositGuardFactory = await hre.ethers.getContractFactory("AlgebraVaultDepositGuard");
     const AlgebraVaultDepositGuard = await AlgebraVaultDepositGuardFactory.deploy(
-    "0x44a48691113c6Ffda540C3Cb9C1250a52fD3d55a", // Vault Factory
-        "0x4200000000000000000000000000000000000006",
+        ...constructorArgs
     ) as AlgebraVaultFactory;
 
     await AlgebraVaultDepositGuard.deployed()
 
     console.log("AlgebraVaultDepositGuard to:", AlgebraVaultDepositGuard.address);
+
+    await hre.run("verify:verify", {
+        address: AlgebraVaultDepositGuard.address,
+        constructorArguments: constructorArgs,
+    });
 }
 
 // We recommend this pattern to be able to use async/await everywhere
