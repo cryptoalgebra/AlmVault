@@ -31,6 +31,8 @@ interface IAlgebraVaultFactory {
 
     function algebraFactory() external view returns (address);
 
+    function pluginDeployer() external view returns (address);
+
     function nftManager() external view returns (address);
 
     function ammName() external view returns (string memory);

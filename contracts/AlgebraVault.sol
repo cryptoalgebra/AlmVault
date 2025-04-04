@@ -61,6 +61,8 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
     uint32 public override twapPeriod;
     uint32 public override auxTwapPeriod;
 
+    address private immutable pluginDeployer;
+
     function _checkManager() private view {
         require(IAccessControl(algebraVaultFactory).hasRole(
             IAlgebraVaultFactory(algebraVaultFactory).MANAGER_ROLE(),
@@ -102,6 +104,7 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
 
         algebraVaultFactory = msg.sender;
         pool = _pool;
+        pluginDeployer = IAlgebraVaultFactory(algebraVaultFactory).pluginDeployer();
         token0 = IAlgebraPool(_pool).token0();
         token1 = IAlgebraPool(_pool).token1();
         allowToken0 = _allowToken0;
@@ -302,7 +305,7 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
             INonfungiblePositionManager.MintParams({
                 token0: token0,
                 token1: token1,
-                deployer: address(0),
+                deployer: pluginDeployer,
                 tickLower: tickLower,
                 tickUpper: tickUpper,
                 amount0Desired: amount0Desired,

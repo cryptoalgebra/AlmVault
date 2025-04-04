@@ -22,6 +22,7 @@ contract AlgebraVaultFactory is IAlgebraVaultFactory, ReentrancyGuard, AccessCon
     uint256 constant PRECISION = 10 ** 18;
     uint32 constant DEFAULT_TWAP_PERIOD = 60 minutes;
     address public immutable override algebraFactory;
+    address public immutable override pluginDeployer;
     address public immutable override nftManager;
     string public override ammName;
 
@@ -36,13 +37,18 @@ contract AlgebraVaultFactory is IAlgebraVaultFactory, ReentrancyGuard, AccessCon
     /**
      @notice creates an instance of AlgebraVaultFactory
      @param _algebraFactory Algebra Integral factory
+     @param _pluginDeployer Address of the plugin factory used for pool's plugin deployment.
+     @param _nftManager Address of the Algebra NFT position manager.
+     @param _ammName Name which should be reflected in the ERC20 name.
      */
     constructor(address _algebraFactory,
+                address _pluginDeployer,
                 address _nftManager,
                 string memory _ammName) {
         require(_algebraFactory != NULL_ADDRESS &&
                 _nftManager != NULL_ADDRESS, "AVF.constructor: zero address");
         algebraFactory = _algebraFactory;
+        pluginDeployer = _pluginDeployer;
         nftManager = _nftManager;
         ammName = _ammName;
         feeRecipient = msg.sender;
