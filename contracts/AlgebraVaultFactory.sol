@@ -93,7 +93,12 @@ contract AlgebraVaultFactory is IAlgebraVaultFactory, ReentrancyGuard, AccessCon
             "AVF.createAlgebraVault: vault exists"
         );
 
-        address pool = IAlgebraFactory(algebraFactory).poolByPair(tokenA, tokenB);
+        address pool;
+        if (pluginDeployer != address(0)) {
+            pool = IAlgebraFactory(algebraFactory).customPoolByPair(pluginDeployer, tokenA, tokenB);
+        } else {
+            pool = IAlgebraFactory(algebraFactory).poolByPair(tokenA, tokenB);
+        }
 
         require(pool != NULL_ADDRESS, "AVF.createAlgebraVault: pool must exist");
 
