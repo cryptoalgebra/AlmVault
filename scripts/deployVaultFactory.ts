@@ -3,12 +3,11 @@ import { UV3Math, AlgebraVaultFactory } from "../types";
 const hre = require("hardhat");
 
 async function main() {
-    const constructorArgs = [
-        "0x51a744E9FEdb15842c3080d0937C99A365C6c358",
-        "0x05f3bd357D47D159ac7d33f9DBaaCFc65d31976d",
-        "0x8aD26dc9f724c9A7319E0E25b907d15626D9a056",
-        "CLAMM"
-    ]
+
+    const algebraFactory = "0x904Af47469B13b341B41c552c952370b76B69DFA"
+    const pluginDeployer = "0x0000000000000000000000000000000000000000" // zero address for base pools
+    const nftManager = "0xDE4E488b8F835E8c7Bc9d2d307fff804625aCA76"
+    const wrapNative = "0x4200000000000000000000000000000000000006"
 
     const uV3MathFactory = await hre.ethers.getContractFactory("UV3Math");
     const uV3Math = (await uV3MathFactory.deploy()) as UV3Math;
@@ -26,17 +25,35 @@ async function main() {
             }
         }
     );
-    const AlgebraVaultFactory = await AlgebraVaultFactoryFactory.deploy(
-        ...constructorArgs
-    ) as AlgebraVaultFactory;
+    const AlgebraVaultFactory = await AlgebraVaultFactoryFactory.deploy(algebraFactory, pluginDeployer, nftManager, "ALGEBRA") as AlgebraVaultFactory;
 
     await AlgebraVaultFactory.deployed()
 
     console.log("AlgebraVaultFactory to:", AlgebraVaultFactory.address);
 
+    const AlgebraVaultDepositGuardFactory = await hre.ethers.getContractFactory("AlgebraVaultDepositGuard");
+    const AlgebraVaultDepositGuard = await AlgebraVaultDepositGuardFactory.deploy(AlgebraVaultFactory.address, wrapNative) as AlgebraVaultFactory;
+
+    await AlgebraVaultDepositGuard.deployed()
+
+    console.log("AlgebraVaultDepositGuard to:", AlgebraVaultDepositGuard.address);
+
+    await hre.run("verify:verify", {
+        address: AlgebraVaultDepositGuard.address,
+        constructorArguments: [
+            AlgebraVaultFactory.address, 
+            wrapNative
+        ],
+    });
+
     await hre.run("verify:verify", {
         address: AlgebraVaultFactory.address,
-        constructorArguments: constructorArgs,
+        constructorArguments: [
+            algebraFactory, 
+            pluginDeployer, 
+            nftManager, 
+            "ALGEBRA"
+        ],
     });
 }
 
