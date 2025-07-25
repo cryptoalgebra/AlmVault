@@ -1327,7 +1327,7 @@ describe("ETHUSDT AlgebraVault Test", () => {
     await network.provider.send("evm_increaseTime", [3600]);
   });
 
-  it.only("handles deposit / withdrawal from pools of different balances", async () => {
+  it("handles deposit / withdrawal from pools of different balances", async () => {
     const gState = await algebraPool.globalState();
     expect(gState.tick).to.equal(-198080);
 

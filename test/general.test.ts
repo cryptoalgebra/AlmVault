@@ -3,7 +3,7 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect } from "chai";
 import { ethers, network } from "hardhat";
 
-import { IAlgebraFactory, IBasePluginV1Factory, INonfungiblePositionManager, ISwapRouter } from "../types";
+import { IAlgebraFactory, INonfungiblePositionManager, ISwapRouter } from "../types";
 import { IAlgebraPool } from "../types/@cryptoalgebra/integral-core/contracts/interfaces/IAlgebraPool";
 import { AlgebraVault } from "../types/contracts/AlgebraVault";
 import { AlgebraVaultFactory } from "../types/contracts/AlgebraVaultFactory";
@@ -39,7 +39,6 @@ describe("Access Control Checks", () => {
   let uniswapPool: IAlgebraPool;
   let algebraVaultFactory: AlgebraVaultFactory;
   let algebraVault: AlgebraVault;
-  let pluginFactory: IBasePluginV1Factory;
 
   let wallet: SignerWithAddress;
   let alice: SignerWithAddress;
@@ -57,7 +56,7 @@ describe("Access Control Checks", () => {
   });
 
   beforeEach("deploy contracts", async () => {
-    ({ token0, token1, token2, factory, router, nft, pluginFactory, oracle, algebraVaultFactory } = await loadFixture(
+    ({ token0, token1, token2, factory, router, nft, oracle, algebraVaultFactory } = await loadFixture(
       algebraVaultTestFixture,
     ));
     await factory.createPool(token0.address, token1.address, '0x');
@@ -106,15 +105,17 @@ describe("Access Control Checks", () => {
   });
 
   it("AlgebraVault", async () => {
-    const msg1 = "Ownable: caller is not the owner";
+    const msg1 = "AV.onlyRebalancerOrRebalanceManager not allowed";
+    const msg2 = "AV.onlyManager not allowed";
+
 
     await expect(algebraVault.connect(alice).rebalance(-1800, 1800, -600, 0, 0)).to.be.revertedWith(msg1);
     await expect(
       algebraVault.connect(alice).setDepositMax(ethers.utils.parseEther("100000"), ethers.utils.parseEther("100000")),
-    ).to.be.revertedWith(msg1);
+    ).to.be.revertedWith(msg2);
     await expect(algebraVault.connect(alice).setHysteresis(50)) // 5%
-      .to.be.revertedWith(msg1);
-    await expect(algebraVault.connect(alice).setTwapPeriod(1800)).to.be.revertedWith(msg1);
+      .to.be.revertedWith(msg2);
+    await expect(algebraVault.connect(alice).setTwapPeriod(1800)).to.be.revertedWith(msg2);
   });
 });
 
@@ -129,7 +130,6 @@ describe("Input Validation Checks", () => {
   let uniswapPool: IAlgebraPool;
   let algebraVaultFactory: AlgebraVaultFactory;
   let algebraVault: AlgebraVault;
-  let pluginFactory: IBasePluginV1Factory;
   let wallet: SignerWithAddress;
   let alice: SignerWithAddress;
   let bob: SignerWithAddress;
@@ -146,7 +146,7 @@ describe("Input Validation Checks", () => {
   });
 
   beforeEach("deploy contracts", async () => {
-    ({ token0, token1, token2, factory, router, nft, pluginFactory, oracle, algebraVaultFactory } = await loadFixture(
+    ({ token0, token1, token2, factory, router, nft, oracle, algebraVaultFactory } = await loadFixture(
       algebraVaultTestFixture,
     ));
 
@@ -166,7 +166,7 @@ describe("Input Validation Checks", () => {
     poolAddress = await algebraVault.pool();
     await expect(tx)
       .to.emit(algebraVault, "DeployAlgebraVault")
-      .withArgs(algebraVaultFactory.address, poolAddress, true, false, wallet.address, 3600);
+      .withArgs(algebraVaultFactory.address, poolAddress, true, false, 3600);
 
     await algebraVault.connect(wallet).setDepositMax(ethers.utils.parseEther("100000"), ethers.utils.parseEther("100000"));
 
@@ -219,7 +219,7 @@ describe("Input Validation Checks", () => {
       },
     });
 
-    await expect(algebraVaultFactoryFactory.deploy(NULL_ADDRESS, NULL_ADDRESS, "VEL")).to.be.revertedWith(msg1);
+    await expect(algebraVaultFactoryFactory.deploy(NULL_ADDRESS, NULL_ADDRESS, NULL_ADDRESS, "VEL")).to.be.revertedWith(msg1);
 
     await expect(algebraVaultFactory.connect(wallet).setFeeRecipient(NULL_ADDRESS)).to.be.revertedWith(msg2);
     await expect(algebraVaultFactory.connect(wallet).setBaseFee(PERCENT_101)).to.be.revertedWith(msg3);
@@ -282,7 +282,7 @@ describe("Input Validation Checks", () => {
     });
 
     // const algebraVaultFactory = await ethers.getContractFactory('AlgebraVault')
-    await expect(algebraVaultFactory.deploy(NULL_ADDRESS, true, true, wallet.address, 3600, 1)).to.be.reverted;
+    await expect(algebraVaultFactory.deploy(NULL_ADDRESS, true, true, 3600, 0)).to.be.reverted;
 
     //await expect(algebraVault.algebraMintCallback(1, 1, [])).to.be.reverted;
     await expect(algebraVault.algebraSwapCallback(1, 1, [])).to.be.reverted;
@@ -297,7 +297,7 @@ describe("Input Validation Checks", () => {
 
     await algebraVaultFactory.connect(wallet).createAlgebraVault(token0.address, true, token1.address, false);
 
-    const pluginAddress = await pluginFactory.pluginByPool(uniswapPool.address);
+    const pluginAddress = await uniswapPool.plugin()
     //console.log("default plugin: " + pluginAddress);
 
     // plugin isn't connected yet
