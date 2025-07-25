@@ -5,12 +5,7 @@ pragma solidity >=0.8.4;
 import { SafeMath } from "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import { UV3Math } from "./../lib/UV3Math.sol";
 import { ITestOracle } from "./ITestOracle.sol";
-
 import { IAlgebraPool } from "@cryptoalgebra/integral-core/contracts/interfaces/IAlgebraPool.sol";
-import {
-    IBasePluginV1Factory
-} from "@cryptoalgebra/integral-base-plugin/contracts/interfaces/IBasePluginV1Factory.sol";
-
 import { IAlgebraVaultFactory } from "../interfaces/IAlgebraVaultFactory.sol";
 
 /**

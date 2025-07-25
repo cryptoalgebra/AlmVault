@@ -6,9 +6,6 @@ import { IAlgebraFactory } from "@cryptoalgebra/integral-core/contracts/interfac
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import { AlgebraVaultDeployer } from "./lib/AlgebraVaultDeployer.sol";
-import {
-    IBasePluginV1Factory
-} from "@cryptoalgebra/integral-base-plugin/contracts/interfaces/IBasePluginV1Factory.sol";
 import { IAlgebraPool } from "@cryptoalgebra/integral-core/contracts/interfaces/IAlgebraPool.sol";
 
 contract AlgebraVaultFactory is IAlgebraVaultFactory, ReentrancyGuard, AccessControl {

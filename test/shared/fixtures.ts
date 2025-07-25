@@ -14,10 +14,7 @@ import {
   abi as SWAP_ROUTER_ABI,
   bytecode as SWAP_ROUTER_BYTECODE,
 } from "@cryptoalgebra/integral-periphery/artifacts/contracts/SwapRouter.sol/SwapRouter.json";
-import {
-  abi as BASE_PLUGIN_FACTORY_ABI,
-  bytecode as BASE_PLUGIN_FACTORY_BYTECODE,
-} from "@cryptoalgebra/integral-base-plugin/artifacts/contracts/BasePluginV1Factory.sol/BasePluginV1Factory.json";
+
 import { BigNumber } from "@ethersproject/bignumber";
 import { getCreateAddress } from "ethers-v6";
 import { ethers } from "hardhat";
@@ -25,14 +22,14 @@ import { ethers } from "hardhat";
 import {
   IAlgebraFactory,
   IAlgebraPoolDeployer,
-  IBasePluginV1Factory,
+  MockPluginFactory,
   INonfungiblePositionManager,
-  ISwapRouter
+  ISwapRouter,
+  AlgebraVaultFactory,
+  UV3Math,
+  TestERC20,
+  TestOracle,
 } from "../../types";
-import { AlgebraVaultFactory } from "../../types/contracts/AlgebraVaultFactory";
-import { UV3Math } from "../../types/contracts/lib/UV3Math";
-import { TestERC20 } from "../../types/contracts/mocks/TestERC20";
-import { TestOracle } from "../../types/contracts/mocks/TestOracle";
 
 const NULL_ADDRESS = "0x0000000000000000000000000000000000000000";
 
@@ -42,7 +39,7 @@ interface AlgebraFixture {
   factory: IAlgebraFactory;
   router: ISwapRouter;
   nft: INonfungiblePositionManager;
-  pluginFactory: IBasePluginV1Factory;
+  pluginFactory: MockPluginFactory;
   oracle: TestOracle;
 }
 
@@ -74,8 +71,8 @@ async function algebraFixture(): Promise<AlgebraFixture> {
   // const pluginFactoryFactory = await ethers.getContractFactory("BasePluginV1Factory");
   // const pluginFactory = (await pluginFactoryFactory.deploy(factory.address)) as IBasePluginV1Factory;
 
-  const pluginFactoryFactory = new ethers.ContractFactory(BASE_PLUGIN_FACTORY_ABI, BASE_PLUGIN_FACTORY_BYTECODE, deployer);
-  const pluginFactory = (await pluginFactoryFactory.deploy(factory.address)) as IBasePluginV1Factory;
+  const pluginFactoryFactory = await ethers.getContractFactory("MockPluginFactory");
+  const pluginFactory = (await pluginFactoryFactory.deploy()) as MockPluginFactory;
 
   await factory.setDefaultPluginFactory(pluginFactory.address);
 
@@ -154,6 +151,7 @@ async function algebraVaultFactoryFixture(
 
   const algebraVaultFactory = (await algebraVaultFactoryFactory.deploy(
     factory.address,
+    NULL_ADDRESS,
     nft.address,
     "VEL"
   )) as AlgebraVaultFactory;

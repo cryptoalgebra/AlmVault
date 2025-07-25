@@ -17,9 +17,6 @@ import { IAlgebraPool } from "@cryptoalgebra/integral-core/contracts/interfaces/
 import {
     INonfungiblePositionManager
 } from "@cryptoalgebra/integral-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
-import {
-    IBasePluginV1Factory
-} from "@cryptoalgebra/integral-base-plugin/contracts/interfaces/IBasePluginV1Factory.sol";
 
 import { IAlgebraVault } from "./interfaces/IAlgebraVault.sol";
 import { IAlgebraVaultFactory } from "./interfaces/IAlgebraVaultFactory.sol";

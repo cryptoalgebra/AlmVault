@@ -6,7 +6,7 @@ import "@cryptoalgebra/integral-core/contracts/libraries/TickMath.sol";
 import "@cryptoalgebra/integral-core/contracts/libraries/Plugins.sol";
 import "@cryptoalgebra/integral-core/contracts/interfaces/IAlgebraPool.sol";
 import "@cryptoalgebra/integral-periphery/contracts/libraries/PoolAddress.sol";
-import "@cryptoalgebra/integral-base-plugin/contracts/interfaces/plugins/IVolatilityOracle.sol";
+import "@cryptoalgebra/volatility-oracle-plugin/contracts/interfaces/IVolatilityOracle.sol";
 
 /// @title Oracle library
 /// @notice Provides functions to integrate with Algebra pool TWAP VolatilityOracle

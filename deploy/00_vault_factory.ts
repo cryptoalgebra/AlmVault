@@ -3,7 +3,6 @@ import { UV3Math, AlgebraVaultFactory } from "../types";
 const hre = require("hardhat");
 
 async function main() {
-
     const algebraFactory = "0x904Af47469B13b341B41c552c952370b76B69DFA"
     const pluginDeployer = "0x0000000000000000000000000000000000000000" // zero address for base pools
     const nftManager = "0xDE4E488b8F835E8c7Bc9d2d307fff804625aCA76"
