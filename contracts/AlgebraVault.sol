@@ -32,6 +32,8 @@ import {IAlgebraVaultFactory} from "./interfaces/IAlgebraVaultFactory.sol";
  AlgebraVaults should be deployed by the AlgebraVaultFactory.
  AlgebraVaults should not be used with tokens that charge transaction fees.
  */
+
+
 contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using SafeMath for uint256;
@@ -67,10 +69,10 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
     address private immutable pluginDeployer;
 
     function _checkManager() private view {
-        require(IAccessControl(algebraVaultFactory).hasRole(
+        if (!IAccessControl(algebraVaultFactory).hasRole(
             IAlgebraVaultFactory(algebraVaultFactory).MANAGER_ROLE(),
             msg.sender
-        ), "AV.onlyManager not allowed");
+        )) revert NotManager();
     }
 
     modifier onlyManager() {
@@ -79,10 +81,10 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
     }
 
     modifier onlyRebalancerOrRebalanceManager() {
-        require(IAccessControl(algebraVaultFactory).hasRole(
+        if (!(IAccessControl(algebraVaultFactory).hasRole(
             IAlgebraVaultFactory(algebraVaultFactory).REBALANCER_ROLE(),
             msg.sender
-        ) || rebalanceManager == msg.sender, "AV.onlyRebalancerOrRebalanceManager not allowed");
+        ) || rebalanceManager == msg.sender)) revert NotRebalancer();
         _;
     }
 
@@ -101,9 +103,8 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         uint32 _twapPeriod,
         uint256 _vaultIndex
     ) ERC20("Algebra Vault Liquidity", UV3Math.computeAVsymbol(_vaultIndex, _pool, _allowToken0)) {
-        if (_pool == NULL_ADDRESS) revert ZERO_ADDRESS();
-        require((_allowToken0 && !_allowToken1) ||
-        (_allowToken1 && !_allowToken0), "AV.constructor: must be single sided");
+        if (_pool == NULL_ADDRESS) revert ZeroAddress();
+        if (_allowToken0 != _allowToken1) revert InvalidDeposit();
 
         algebraVaultFactory = msg.sender;
         pool = _pool;
@@ -164,7 +165,7 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
     /// @dev onlyManager
     /// @param newTwapPeriod new TWAP period
     function setTwapPeriod(uint32 newTwapPeriod) external override onlyManager {
-        require(newTwapPeriod > 0, "AV.setTwapPeriod: missing period");
+        if (newTwapPeriod == 0) revert ZeroValue();
         twapPeriod = newTwapPeriod;
         emit SetTwapPeriod(msg.sender, newTwapPeriod);
     }
@@ -496,9 +497,9 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
                 : auxTwap.sub(price).mul(PRECISION).div(auxTwap);
 
             if (delta > hysteresis || auxDelta > hysteresis)
-                require(checkHysteresis(), "AV.deposit: try later");
+                if (!checkHysteresis()) revert InvalidDeposit();
         } else if (delta > hysteresis) {
-            require(checkHysteresis(), "AV.deposit: try later");
+            if (!checkHysteresis()) revert InvalidDeposit();
         }
     }
 
@@ -514,11 +515,11 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         uint256 deposit1,
         address to
     ) external override nonReentrant returns (uint256 shares) {
-        require(allowToken0 || deposit0 == 0, "AV.deposit: token0 not allowed");
-        require(allowToken1 || deposit1 == 0, "AV.deposit: token1 not allowed");
-        require(deposit0 > 0 || deposit1 > 0, "AV.deposit: deposits must be > 0");
-        require(deposit0 < deposit0Max && deposit1 < deposit1Max, "AV.deposit: deposits too large");
-        require(to != NULL_ADDRESS && to != address(this), "AV.deposit: to");
+        if (!(allowToken0 || deposit0 == 0)) revert InvalidDeposit();
+        if (!(allowToken1 || deposit1 == 0)) revert InvalidDeposit();
+        if (!(deposit0 > 0 || deposit1 > 0)) revert InvalidDeposit();
+        if (!(deposit0 < deposit0Max && deposit1 < deposit1Max)) revert InvalidDeposit();
+        if (to == NULL_ADDRESS || to == address(this)) revert ZeroAddress();
 
         // Get spot price
         uint256 price = _fetchSpot(token0, token1, currentTick(), PRECISION);
@@ -543,7 +544,7 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         uint256 _totalSupply = totalSupply();
 
         // this should not happen, safety check against withdrawal fees overflowing both positions
-        require(pool0 > 0 || pool1 > 0 || _totalSupply == 0, "AV.deposit: empty");
+        if (!(pool0 > 0 || pool1 > 0 || _totalSupply == 0)) revert EmptyVault();
 
         // Transfer tokens from depositor
         if (deposit0 > 0) {
@@ -606,7 +607,7 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         ) = _nftManager().positions(positionId);
 
         // should not be happening, safety check
-        require(tokensOwed0 == 0 && tokensOwed1 == 0, "AV.withdraw: tokens owed");
+        if (!(tokensOwed0 == 0 && tokensOwed1 == 0)) revert TokensOwed();
 
         // Calculate proportional liquidity
         uint128 liquidityToDecrease = uint128(uint256(positionLiquidity).mul(shares).div(totalSupply));
@@ -645,11 +646,11 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         uint256 shares,
         address to
     ) external override nonReentrant returns (uint256 amount0, uint256 amount1) {
-        require(shares > 0, "AV.withdraw: shares");
-        require(to != NULL_ADDRESS, "AV.withdraw: to");
+        if (shares == 0) revert ZeroValue();
+        if (to == NULL_ADDRESS) revert ZeroAddress();
 
         uint256 _totalSupply = totalSupply();
-        require(shares == _totalSupply || _totalSupply >= shares.add(MIN_SHARES), "AV.withdraw: min shares");
+        if (!(shares == _totalSupply || _totalSupply >= shares.add(MIN_SHARES))) revert InvalidDeposit();
 
         // Clean positions and collect/distribute fees
         _cleanPositions(true);
@@ -701,15 +702,13 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         int256 swapQuantity
     ) external override nonReentrant onlyRebalancerOrRebalanceManager {
         int24 tickSpacing_ = IAlgebraPool(pool).tickSpacing();
-        require(
-            _baseLower < _baseUpper && _baseLower % tickSpacing_ == 0 && _baseUpper % tickSpacing_ == 0,
-            "AV.rebalance: base position invalid"
-        );
-        require(
-            _limitLower < _limitUpper && _limitLower % tickSpacing_ == 0 && _limitUpper % tickSpacing_ == 0,
-            "AV.rebalance: limit position invalid"
-        );
-        require(_baseLower != _limitLower || _baseUpper != _limitUpper, "AV.rebalance: identical positions");
+        if (!(_baseLower < _baseUpper && _baseLower % tickSpacing_ == 0 && _baseUpper % tickSpacing_ == 0)) {
+            revert InvalidPosition();
+        }
+        if (!(_limitLower < _limitUpper && _limitLower % tickSpacing_ == 0 && _limitUpper % tickSpacing_ == 0)) {
+            revert InvalidPosition();
+        }
+        if (!(_baseLower != _limitLower || _baseUpper != _limitUpper)) revert IdenticalPositions();
 
         // Clean positions and collect/distribute fees
         (uint256 fees0, uint256 fees1) = _cleanPositions(false);
@@ -880,7 +879,7 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
      @param _farmingRewardsDistributor The farming rewards distributor contract address
      */
     function setFarmingRewardsDistributor(address _farmingRewardsDistributor) external override onlyManager {
-        require(_farmingRewardsDistributor != address(0), "AV.zeroAddress");
+        if (_farmingRewardsDistributor == address(0)) revert ZeroAddress();
         farmingRewardsDistributor = _farmingRewardsDistributor;
         emit FarmingContract(msg.sender, _farmingRewardsDistributor);
     }
@@ -1029,7 +1028,7 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
      */
     function currentTick() public view override returns (int24 tick) {
         (, int24 tick_, , , , bool unlocked_) = IAlgebraPool(pool).globalState();
-        require(unlocked_, "AV.currentTick: the pool is locked");
+        if (!unlocked_) revert InvalidDeposit();
         tick = tick_;
     }
 
@@ -1084,7 +1083,7 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
      @param amount1Delta required amount of token1
      */
     function algebraSwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata) external override {
-        require(msg.sender == address(pool), "cb2");
+        if (msg.sender != address(pool)) revert InvalidDeposit();
 
         if (amount0Delta > 0) {
             IERC20(token0).safeTransfer(msg.sender, uint256(amount0Delta));
@@ -1096,6 +1095,6 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
     function _getBasePluginFromPool() private view returns (address basePlugin) {
         basePlugin = IAlgebraPool(pool).plugin();
         // make sure the base plugin is connected to the pool
-        require(UV3Math.isOracleConnectedToPool(basePlugin, pool), "AV: diconnected plugin");
+        if (!UV3Math.isOracleConnectedToPool(basePlugin, pool)) revert AlgebraDisconnectedPlugin();
     }
 }

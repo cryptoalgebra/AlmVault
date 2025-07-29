@@ -3,8 +3,16 @@
 pragma solidity >=0.8.4;
 
 interface IAlgebraVault {
-    error ZERO_ADDRESS();
-    error MUST_BE_SINGLE_SIDED();
+    error ZeroValue();
+    error NotManager();
+    error NotRebalancer();
+    error ZeroAddress();
+    error InvalidDeposit();
+    error EmptyVault();
+    error TokensOwed();
+    error IdenticalPositions();
+    error InvalidPosition();
+    error AlgebraDisconnectedPlugin();
 
     function algebraVaultFactory() external view returns (address);
 
