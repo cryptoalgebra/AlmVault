@@ -7,6 +7,7 @@ import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol"
 import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import { AlgebraVaultDeployer } from "./lib/AlgebraVaultDeployer.sol";
 import { IAlgebraPool } from "@cryptoalgebra/integral-core/contracts/interfaces/IAlgebraPool.sol";
+import { IAlgebraEternalFarming } from "@cryptoalgebra/integral-farming/contracts/interfaces/IAlgebraEternalFarming.sol";
 
 contract AlgebraVaultFactory is IAlgebraVaultFactory, ReentrancyGuard, AccessControl {
     bytes32 public constant override MANAGER_ROLE = keccak256("MANAGER_ROLE");
@@ -19,8 +20,10 @@ contract AlgebraVaultFactory is IAlgebraVaultFactory, ReentrancyGuard, AccessCon
     uint256 constant PRECISION = 10 ** 18;
     uint32 constant DEFAULT_TWAP_PERIOD = 60 minutes;
     address public immutable override algebraFactory;
-    address public immutable override pluginDeployer;
     address public immutable override nftManager;
+    address public immutable override pluginDeployer;
+    address public immutable override farmingCenter;
+    address public immutable override eternalFarming;
     string public override ammName;
 
     address public override feeRecipient;
@@ -40,13 +43,19 @@ contract AlgebraVaultFactory is IAlgebraVaultFactory, ReentrancyGuard, AccessCon
      */
     constructor(address _algebraFactory,
                 address _pluginDeployer,
+                address _eternalFarming,
                 address _nftManager,
                 string memory _ammName) {
         require(_algebraFactory != NULL_ADDRESS &&
-                _nftManager != NULL_ADDRESS, "AVF.constructor: zero address");
+                _nftManager != NULL_ADDRESS &&
+                _eternalFarming != NULL_ADDRESS, "AVF.constructor: zero address");
         algebraFactory = _algebraFactory;
         pluginDeployer = _pluginDeployer;
+        eternalFarming = _eternalFarming;
         nftManager = _nftManager;
+
+        farmingCenter = IAlgebraEternalFarming(_eternalFarming).farmingCenter();
+
         ammName = _ammName;
         feeRecipient = msg.sender;
         ammFee = DEFAULT_AMM_FEE;

@@ -14,6 +14,14 @@ import {
   abi as SWAP_ROUTER_ABI,
   bytecode as SWAP_ROUTER_BYTECODE,
 } from "@cryptoalgebra/integral-periphery/artifacts/contracts/SwapRouter.sol/SwapRouter.json";
+import {
+  abi as ETERNAL_FARMING_ABI,
+  bytecode as ETERNAL_FARMING_BYTECODE,
+} from "@cryptoalgebra/integral-farming/artifacts/contracts/farmings/AlgebraEternalFarming.sol/AlgebraEternalFarming.json";
+import {
+  abi as FARMING_CENTER_ABI,
+  bytecode as FARMING_CENTER_BYTECODE,
+} from "@cryptoalgebra/integral-farming/artifacts/contracts/FarmingCenter.sol/FarmingCenter.json"
 
 import { BigNumber } from "@ethersproject/bignumber";
 import { getCreateAddress } from "ethers-v6";
@@ -25,6 +33,7 @@ import {
   MockPluginFactory,
   INonfungiblePositionManager,
   ISwapRouter,
+  IAlgebraEternalFarming,
   AlgebraVaultFactory,
   UV3Math,
   TestERC20,
@@ -103,6 +112,9 @@ async function algebraFixture(): Promise<AlgebraFixture> {
   });
   const oracle = (await oracleFactory.deploy()) as TestOracle;
 
+  const eternalFarmingFactory = new ethers.ContractFactory(ETERNAL_FARMING_ABI, ETERNAL_FARMING_BYTECODE, deployer);
+  const eternalFarming = (await eternalFarmingFactory.deploy(pluginFactory.address, nft.address)) as ;
+
   return { factory, router, nft, pluginFactory, oracle };
 }
 
@@ -165,6 +177,26 @@ export const algebraVaultTestFixture: Fixture<AlgebraVaultTestFixture> = async f
   const { factory, router, nft, pluginFactory, oracle } = await algebraFixture();
   const { token0, token1, token2 } = await tokensFixture();
   const { algebraVaultFactory } = await algebraVaultFactoryFixture(factory, nft);
+
+  return {
+    token0,
+    token1,
+    token2,
+    factory,
+    router,
+    nft,
+    pluginFactory,
+    oracle,
+    algebraVaultFactory,
+  };
+};
+
+export const algebraVaultWithFarmingTestFixture: Fixture<AlgebraVaultTestFixture> = async function (): Promise<AlgebraVaultTestFixture> {
+  const { factory, router, nft, pluginFactory, oracle } = await algebraFixture();
+  const { token0, token1, token2 } = await tokensFixture();
+  const { algebraVaultFactory } = await algebraVaultFactoryFixture(factory, nft);
+
+  const [deployer] = await ethers.getSigners();
 
   return {
     token0,

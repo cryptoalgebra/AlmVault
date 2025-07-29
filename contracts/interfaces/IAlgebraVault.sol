@@ -3,6 +3,9 @@
 pragma solidity >=0.8.4;
 
 interface IAlgebraVault {
+    error ZERO_ADDRESS();
+    error MUST_BE_SINGLE_SIDED();
+
     function algebraVaultFactory() external view returns (address);
 
     function pool() external view returns (address);
@@ -24,6 +27,8 @@ interface IAlgebraVault {
     function affiliate() external view returns (address);
 
     function rebalanceManager() external view returns (address);
+
+    function farmingRewardsDistributor() external view returns (address);
 
     function baseLower() external view returns (int24);
 
@@ -61,8 +66,6 @@ interface IAlgebraVault {
 
     function currentTick() external view returns (int24);
 
-    function resetAllowances() external;
-
     function rebalance(
         int24 _baseLower,
         int24 _baseUpper,
@@ -73,6 +76,8 @@ interface IAlgebraVault {
 
     function collectFees() external returns (uint256 fees0, uint256 fees1);
 
+    function collectRewards() external;
+
     function setDepositMax(uint256 _deposit0Max, uint256 _deposit1Max) external;
 
     function setHysteresis(uint256 _hysteresis) external;
@@ -82,6 +87,8 @@ interface IAlgebraVault {
     function setAffiliate(address _affiliate) external;
 
     function setRebalanceManager(address _rebalanceManager) external;
+
+    function setFarmingRewardsDistributor(address _farmingRewardsDistributor) external;
 
     function setTwapPeriod(uint32 newTwapPeriod) external;
 
@@ -113,6 +120,10 @@ interface IAlgebraVault {
     );
 
     event CollectFees(address indexed sender, uint256 feeAmount0, uint256 feeAmount1);
+
+    event RewardsCollected(uint256 reward, uint256 bonusReward);
+
+    event FarmingContract(address indexed sender, address farmingContract);
 
     event Hysteresis(address indexed sender, uint256 hysteresis);
 

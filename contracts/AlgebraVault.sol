@@ -2,24 +2,29 @@
 
 pragma solidity >=0.8.4;
 
-import { SafeMath } from "@openzeppelin/contracts/utils/math/SafeMath.sol";
-import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
-import { UV3Math } from "./lib/UV3Math.sol";
-import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import {SafeMath} from "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
+import {UV3Math} from "./lib/UV3Math.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 import {
-    IAlgebraSwapCallback
+IAlgebraSwapCallback
 } from "@cryptoalgebra/integral-core/contracts/interfaces/callback/IAlgebraSwapCallback.sol";
-import { IAlgebraPool } from "@cryptoalgebra/integral-core/contracts/interfaces/IAlgebraPool.sol";
+import {IAlgebraPool} from "@cryptoalgebra/integral-core/contracts/interfaces/IAlgebraPool.sol";
 import {
-    INonfungiblePositionManager
+INonfungiblePositionManager
 } from "@cryptoalgebra/integral-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
 
-import { IAlgebraVault } from "./interfaces/IAlgebraVault.sol";
-import { IAlgebraVaultFactory } from "./interfaces/IAlgebraVaultFactory.sol";
+import {IERC20Minimal} from '@cryptoalgebra/integral-core/contracts/interfaces/IERC20Minimal.sol';
+import {IFarmingCenter} from "@cryptoalgebra/integral-farming/contracts/interfaces/IFarmingCenter.sol";
+import {IAlgebraEternalFarming} from "@cryptoalgebra/integral-farming/contracts/interfaces/IAlgebraEternalFarming.sol";
+import {IncentiveKey} from  "@cryptoalgebra/integral-farming/contracts/base/IncentiveKey.sol";
+
+import {IAlgebraVault} from "./interfaces/IAlgebraVault.sol";
+import {IAlgebraVaultFactory} from "./interfaces/IAlgebraVaultFactory.sol";
 
 /**
  @notice A Uniswap V2-like interface with fungible liquidity to Uniswap V3
@@ -41,6 +46,7 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
     address public override ammFeeRecipient;
     address public override affiliate;
     address public override rebalanceManager;
+    address public override farmingRewardsDistributor;
 
     // Position tracking
     uint256 public override basePositionId;
@@ -95,9 +101,9 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         uint32 _twapPeriod,
         uint256 _vaultIndex
     ) ERC20("Algebra Vault Liquidity", UV3Math.computeAVsymbol(_vaultIndex, _pool, _allowToken0)) {
-        require(_pool != NULL_ADDRESS, "AV.constructor: zero address");
+        if (_pool == NULL_ADDRESS) revert ZERO_ADDRESS();
         require((_allowToken0 && !_allowToken1) ||
-                (_allowToken1 && !_allowToken0), "AV.constructor: must be single sided");
+        (_allowToken1 && !_allowToken0), "AV.constructor: must be single sided");
 
         algebraVaultFactory = msg.sender;
         pool = _pool;
@@ -154,12 +160,6 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         return tickUpper;
     }
 
-    /// @notice resets allowances for the NFT manager
-    function resetAllowances() external override onlyManager {
-        IERC20(token0).approve(address(_nftManager()), type(uint256).max);
-        IERC20(token1).approve(address(_nftManager()), type(uint256).max);
-    }
-
     /// @notice sets TWAP period for hysteresis checks
     /// @dev onlyManager
     /// @param newTwapPeriod new TWAP period
@@ -176,6 +176,91 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
     function setAuxTwapPeriod(uint32 newAuxTwapPeriod) external override onlyManager {
         auxTwapPeriod = newAuxTwapPeriod;
         emit SetAuxTwapPeriod(msg.sender, newAuxTwapPeriod);
+    }
+
+    /// @notice Internal function to approve NFT for farming and enter farming position
+    /// @param tokenId The ID of the NFT position to enter into farming
+    function _approveAndEnterFarming(uint256 tokenId) internal {
+        // Get the key from incentive maker
+        IAlgebraEternalFarming farming = _eternalFarming();
+        IFarmingCenter farmingCenter = _farmingCenter();
+        (IERC20Minimal rewardToken, IERC20Minimal bonusRewardToken, IAlgebraPool pool, uint256 nonce) =
+                            farming.incentiveKeys(address(pool));
+
+        // if the pool does not have farming
+        if (address(pool) == NULL_ADDRESS) return;
+
+        IncentiveKey memory key = IncentiveKey(
+            rewardToken,
+            bonusRewardToken,
+            pool,
+            nonce
+        );
+
+        _nftManager().approveForFarming(
+            tokenId,
+            true,
+            address(farmingCenter)
+        );
+
+        // Enter farming
+        farmingCenter.enterFarming(key, tokenId);
+    }
+
+    function _collectAndClaimRewards(uint256 tokenId) internal {
+        if (tokenId == 0) return;
+
+        // Collect rewards
+        IncentiveKey memory key = _getKeyForToken(tokenId);
+        // if the pool is not in the incentive maker, return
+        if (address(key.pool) == NULL_ADDRESS) return;
+
+        address recipient = farmingRewardsDistributor != NULL_ADDRESS ? farmingRewardsDistributor : affiliate;
+        // not reverting, to avoid a hypothetical situation where withdraws are blocked because of missing recipient
+        if (recipient == NULL_ADDRESS) return;
+
+        (uint256 reward, uint256 bonusReward) = _farmingCenter().collectRewards(key, tokenId);
+
+        // Claim
+        if (reward > 0) {
+            _farmingCenter().claimReward(key.rewardToken, recipient, reward);
+        }
+
+        if (bonusReward > 0) {
+            _farmingCenter().claimReward(key.bonusRewardToken, recipient, bonusReward);
+        }
+
+        // assuming reward and bonusReward are known
+        emit RewardsCollected(
+            reward,
+            bonusReward
+        );
+    }
+
+    /**
+     @notice Collect rewards and sends them to the farming contract.
+     */
+    function collectRewards() external override nonReentrant {
+        if (basePositionId != 0) _collectAndClaimRewards(basePositionId);
+        if (limitPositionId != 0) _collectAndClaimRewards(limitPositionId);
+    }
+
+    function _getKeyForToken(uint256 tokenId) internal view returns (IncentiveKey memory) {
+        bytes32 incentiveId = _farmingCenter().deposits(tokenId);
+
+        (
+            IERC20Minimal rewardToken,
+            IERC20Minimal bonusRewardToken,
+            IAlgebraPool pool,
+            uint256 nonce
+        ) = _farmingCenter().incentiveKeys(incentiveId);
+
+        return IncentiveKey({
+            rewardToken: rewardToken,
+            bonusRewardToken: bonusRewardToken,
+            pool: pool,
+            nonce: nonce
+        });
     }
 
     /// @notice collects fees and tokens from the positions and burns the NFTs
@@ -214,6 +299,18 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         return INonfungiblePositionManager(IAlgebraVaultFactory(algebraVaultFactory).nftManager());
     }
 
+    /// @notice gets Farming center
+    /// @return IFarmingCenter Farming center
+    function _farmingCenter() internal view returns (IFarmingCenter) {
+        return IFarmingCenter(IAlgebraVaultFactory(algebraVaultFactory).farmingCenter());
+    }
+
+    /// @notice gets Eternal farming
+    /// @return IAlgebraEternalFarming Eternal farming
+    function _eternalFarming() internal view returns (IAlgebraEternalFarming) {
+        return IAlgebraEternalFarming(IAlgebraVaultFactory(algebraVaultFactory).eternalFarming());
+    }
+
     /// @notice collects fees from the position
     /// @param positionId NFT position ID
     function _collectFromPosition(uint256 positionId) internal returns (uint256 fees0, uint256 fees1) {
@@ -240,14 +337,10 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         fees0 = 0;
         fees1 = 0;
         if (basePositionId != 0) {
-            (uint256 feesBase0, uint256 feesBase1) = _collectFromPosition(basePositionId);
-            fees0 = fees0.add(feesBase0);
-            fees1 = fees1.add(feesBase1);
+            (fees0, fees1) = _collectRewardsAndAccrueFees(basePositionId, 0, 0);
         }
         if (limitPositionId != 0) {
-            (uint256 feesLimit0, uint256 feesLimit1) = _collectFromPosition(limitPositionId);
-            fees0 = fees0.add(feesLimit0);
-            fees1 = fees1.add(feesLimit1);
+            (fees0, fees1) = _collectRewardsAndAccrueFees(limitPositionId, fees0, fees1);
         }
         if (fees0 > 0 || fees1 > 0) {
             _distributeFees(fees0, fees1);
@@ -255,6 +348,14 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
                 emit CollectFees(msg.sender, fees0, fees1);
             }
         }
+    }
+
+    function _collectRewardsAndAccrueFees(uint256 positionId, uint256 fees0, uint256 fees1) private returns (uint256, uint256) {
+        _collectAndClaimRewards(positionId);
+        (uint256 _fees0, uint256 _fees1) = _collectFromPosition(positionId);
+        fees0 = fees0 + _fees0;
+        fees1 = fees1 + _fees1;
+        return (fees0, fees1);
     }
 
     /**
@@ -285,20 +386,20 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
                 return 0;
             }
         }
-        // If entirely above current tick (not including boundary), we only need token0
+            // If entirely above current tick (not including boundary), we only need token0
         else if (currentTick < tickLower) {
             if (amount0Desired == 0) {
                 return 0;
             }
         }
-        // If entirely below current tick (including boundary), we only need token1
+            // If entirely below current tick (including boundary), we only need token1
         else if (currentTick >= tickUpper) {
             if (amount1Desired == 0) {
                 return 0;
             }
         }
 
-        (positionId, , , ) = _nftManager().mint(
+        (positionId,,,) = _nftManager().mint(
             INonfungiblePositionManager.MintParams({
                 token0: token0,
                 token1: token1,
@@ -313,6 +414,9 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
                 deadline: block.timestamp
             })
         );
+
+        // Approve and enter farming center
+        _approveAndEnterFarming(positionId);
     }
 
     /// @notice mints base position
@@ -619,7 +723,7 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
             IAlgebraPool(pool).swap(
                 address(this),
                 swapQuantity > 0,
-                swapQuantity > 0 ? swapQuantity : -swapQuantity,
+                swapQuantity > 0 ? swapQuantity : - swapQuantity,
                 swapQuantity > 0 ? UV3Math.MIN_SQRT_RATIO + 1 : UV3Math.MAX_SQRT_RATIO - 1,
                 abi.encode(address(this))
             );
@@ -736,7 +840,7 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
      @return fee_ current fee in the pool
      */
     function fee() external view override returns (uint24 fee_) {
-        (, , fee_, , , ) = IAlgebraPool(pool).globalState();
+        (,, fee_,,,) = IAlgebraPool(pool).globalState();
     }
 
     /**
@@ -768,6 +872,17 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
     function setAffiliate(address _affiliate) external override onlyManager {
         affiliate = _affiliate;
         emit Affiliate(msg.sender, _affiliate);
+    }
+
+    /**
+     @notice Sets the contract address where farming rewards will be sent
+     @dev onlyManager
+     @param _farmingRewardsDistributor The farming rewards distributor contract address
+     */
+    function setFarmingRewardsDistributor(address _farmingRewardsDistributor) external override onlyManager {
+        require(_farmingRewardsDistributor != address(0), "AV.zeroAddress");
+        farmingRewardsDistributor = _farmingRewardsDistributor;
+        emit FarmingContract(msg.sender, _farmingRewardsDistributor);
     }
 
     /**
@@ -843,7 +958,7 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         ) = _nftManager().positions(positionId);
 
         // Get current price from pool for amount calculation
-        (uint160 sqrtRatioX96, , , , , ) = IAlgebraPool(pool).globalState();
+        (uint160 sqrtRatioX96, , , , ,) = IAlgebraPool(pool).globalState();
 
         // Calculate amounts for the current liquidity
         (amount0, amount1) = UV3Math.getAmountsForLiquidity(
@@ -955,11 +1070,11 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         int256 twapTick = UV3Math.consult(basePlugin, _twapPeriod);
         return
             UV3Math.getQuoteAtTick(
-                int24(twapTick), // can assume safe being result from consult()
-                UV3Math.toUint128(_amountIn),
-                _tokenIn,
-                _tokenOut
-            );
+            int24(twapTick), // can assume safe being result from consult()
+            UV3Math.toUint128(_amountIn),
+            _tokenIn,
+            _tokenOut
+        );
     }
 
     /**
