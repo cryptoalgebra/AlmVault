@@ -5,9 +5,10 @@ pragma abicoder v1;
 import '@cryptoalgebra/integral-core/contracts/interfaces/IAlgebraPool.sol';
 import '@cryptoalgebra/integral-core/contracts/libraries/Plugins.sol';
 import '@cryptoalgebra/volatility-oracle-plugin/contracts/VolatilityOraclePlugin.sol';
+import '@cryptoalgebra/farming-proxy-plugin/contracts/interfaces/IAlgebraVirtualPool.sol';
 import './TestERC20.sol';
 
-contract MockPoolPlugin is VolatilityOraclePlugin {
+contract MockPlugin is VolatilityOraclePlugin {
     uint8 public constant defaultPluginConfig = uint8(Plugins.AFTER_INIT_FLAG | Plugins.BEFORE_SWAP_FLAG);
 
     address public incentive;
@@ -173,5 +174,12 @@ contract MockPoolPlugin is VolatilityOraclePlugin {
 
     function getPool() external view returns (address) {
         return pool;
+    }
+
+    function updateVirtualPoolTick(int24 tick, bool zeroToOne) external {
+        address _incentive = incentive;
+        if (_incentive != address(0)) {
+            IAlgebraVirtualPool(_incentive).crossTo(tick, zeroToOne);
+        }
     }
 }
