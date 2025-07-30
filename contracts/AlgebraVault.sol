@@ -32,8 +32,6 @@ import {IAlgebraVaultFactory} from "./interfaces/IAlgebraVaultFactory.sol";
  AlgebraVaults should be deployed by the AlgebraVaultFactory.
  AlgebraVaults should not be used with tokens that charge transaction fees.
  */
-
-
 contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using SafeMath for uint256;
@@ -185,17 +183,17 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         // Get the key from incentive maker
         IAlgebraEternalFarming farming = _eternalFarming();
         IFarmingCenter farmingCenter = _farmingCenter();
-        (IERC20Minimal rewardToken, IERC20Minimal bonusRewardToken, IAlgebraPool pool, uint256 nonce) =
+        (IERC20Minimal _rewardToken, IERC20Minimal _bonusRewardToken, IAlgebraPool _pool, uint256 _nonce) =
                             farming.incentiveKeys(address(pool));
 
         // if the pool does not have farming
-        if (address(pool) == NULL_ADDRESS) return;
+        if (address(_pool) == NULL_ADDRESS) return;
 
         IncentiveKey memory key = IncentiveKey(
-            rewardToken,
-            bonusRewardToken,
-            pool,
-            nonce
+            _rewardToken,
+            _bonusRewardToken,
+            _pool,
+            _nonce
         );
 
         _nftManager().approveForFarming(
