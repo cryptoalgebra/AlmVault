@@ -137,5 +137,28 @@ describe("Farming Integration", () => {
     await network.provider.send("evm_increaseTime", [3600]);
   });
 
-  it("Enters farming on rebalance", async () => {});
+  describe("With deposits", () => {
+    beforeEach("setup", async () => {
+      // alice approves the AlgebraVault to transfer her tokens
+      await token0.connect(alice).approve(algebraVault.address, largeTokenAmount);
+      await token1.connect(alice).approve(algebraVault.address, largeTokenAmount);
+      // mint tokens to alice
+      await token0.mint(alice.address, largeTokenAmount);
+      await token1.mint(alice.address, largeTokenAmount);
+    })
+
+    it("Enters farming on rebalance", async () => {
+      await algebraVault
+          .connect(alice)
+          .deposit(ethers.utils.parseEther("4000"), 0, alice.address);
+
+      await algebraVault.connect(wallet).rebalance(-1800, -1200, 180, 600, 0);
+      const balance0 = await token0.balanceOf(algebraVault.address);
+      const balance1 = await token1.balanceOf(algebraVault.address);
+      expect(balance0).to.be.equal(0);
+      expect(balance1).to.be.equal(0);
+
+      expect(await nft.tokenFarmedIn(2)).to.be.equal(farmingCenter.address);
+    });
+  })
 });
