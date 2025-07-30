@@ -33,11 +33,12 @@ import {
   MockPluginFactory,
   INonfungiblePositionManager,
   ISwapRouter,
+  IAccessControl,
   IAlgebraEternalFarming,
   AlgebraVaultFactory,
   UV3Math,
   TestERC20,
-  TestOracle,
+  TestOracle, IFarmingCenter,
 } from "../../types";
 
 const NULL_ADDRESS = "0x0000000000000000000000000000000000000000";
@@ -50,6 +51,7 @@ interface AlgebraFixture {
   nft: INonfungiblePositionManager;
   pluginFactory: MockPluginFactory;
   oracle: TestOracle;
+  poolDeployer: IAlgebraPoolDeployer;
 }
 
 
@@ -112,10 +114,7 @@ async function algebraFixture(): Promise<AlgebraFixture> {
   });
   const oracle = (await oracleFactory.deploy()) as TestOracle;
 
-  const eternalFarmingFactory = new ethers.ContractFactory(ETERNAL_FARMING_ABI, ETERNAL_FARMING_BYTECODE, deployer);
-  const eternalFarming = (await eternalFarmingFactory.deploy(pluginFactory.address, nft.address)) as ;
-
-  return { factory, router, nft, pluginFactory, oracle };
+  return { factory, router, nft, pluginFactory, oracle, poolDeployer };
 }
 
 interface TokensFixture {
@@ -143,10 +142,27 @@ interface AlgebraVaultFactoryFixture {
 
 async function algebraVaultFactoryFixture(
   factory: IAlgebraFactory,
+  poolDeployer: IAlgebraPoolDeployer,
   nft: INonfungiblePositionManager,
 ): Promise<AlgebraVaultFactoryFixture> {
+  const [deployer] = await ethers.getSigners();
+
   const uV3MathFactory = await ethers.getContractFactory("UV3Math");
   const uV3Math = (await uV3MathFactory.deploy()) as UV3Math;
+
+  const eternalFarmingFactory = new ethers.ContractFactory(ETERNAL_FARMING_ABI, ETERNAL_FARMING_BYTECODE, deployer);
+  const eternalFarming = (await eternalFarmingFactory.deploy(poolDeployer.address, nft.address)) as IAlgebraEternalFarming;
+
+  const farmingCenterFactory = new ethers.ContractFactory(FARMING_CENTER_ABI, FARMING_CENTER_BYTECODE, deployer);
+  const farmingCenter = (await farmingCenterFactory.deploy(eternalFarming.address, nft.address)) as IFarmingCenter;
+
+  await nft.setFarmingCenter(farmingCenter.address);
+
+  await eternalFarming.setFarmingCenterAddress(farmingCenter.address);
+
+  const incentiveMakerRole = await eternalFarming.INCENTIVE_MAKER_ROLE();
+
+  await (factory as any as IAccessControl).grantRole(incentiveMakerRole, deployer.address);
 
   const algebraVaultDeployer = await ethers.getContractFactory("AlgebraVaultDeployer", {
     libraries: {
@@ -164,6 +180,7 @@ async function algebraVaultFactoryFixture(
   const algebraVaultFactory = (await algebraVaultFactoryFactory.deploy(
     factory.address,
     NULL_ADDRESS,
+    eternalFarming.address,
     nft.address,
     "VEL"
   )) as AlgebraVaultFactory;
@@ -174,9 +191,9 @@ async function algebraVaultFactoryFixture(
 type AlgebraVaultTestFixture = AlgebraFixture & TokensFixture & AlgebraVaultFactoryFixture;
 
 export const algebraVaultTestFixture: Fixture<AlgebraVaultTestFixture> = async function (): Promise<AlgebraVaultTestFixture> {
-  const { factory, router, nft, pluginFactory, oracle } = await algebraFixture();
+  const { factory, router, nft, pluginFactory, oracle, poolDeployer } = await algebraFixture();
   const { token0, token1, token2 } = await tokensFixture();
-  const { algebraVaultFactory } = await algebraVaultFactoryFixture(factory, nft);
+  const { algebraVaultFactory } = await algebraVaultFactoryFixture(factory, poolDeployer, nft);
 
   return {
     token0,
@@ -187,16 +204,15 @@ export const algebraVaultTestFixture: Fixture<AlgebraVaultTestFixture> = async f
     nft,
     pluginFactory,
     oracle,
+    poolDeployer,
     algebraVaultFactory,
   };
 };
 
 export const algebraVaultWithFarmingTestFixture: Fixture<AlgebraVaultTestFixture> = async function (): Promise<AlgebraVaultTestFixture> {
-  const { factory, router, nft, pluginFactory, oracle } = await algebraFixture();
+  const { factory, router, nft, pluginFactory, oracle, poolDeployer } = await algebraFixture();
   const { token0, token1, token2 } = await tokensFixture();
-  const { algebraVaultFactory } = await algebraVaultFactoryFixture(factory, nft);
-
-  const [deployer] = await ethers.getSigners();
+  const { algebraVaultFactory } = await algebraVaultFactoryFixture(factory, poolDeployer, nft);
 
   return {
     token0,
@@ -207,6 +223,7 @@ export const algebraVaultWithFarmingTestFixture: Fixture<AlgebraVaultTestFixture
     nft,
     pluginFactory,
     oracle,
+    poolDeployer,
     algebraVaultFactory,
   };
 };

@@ -161,4 +161,10 @@ contract MockPoolPlugin is VolatilityOraclePlugin {
         emit AfterFlash(sender, recipient, amount0, amount1, paid0, paid1, data);
         return IAlgebraPlugin.afterFlash.selector;
     }
+
+    event SetIncentive(address virtualPool);
+
+    function setIncentive(address _pool) external {
+        emit SetIncentive(_pool);
+    }
 }
