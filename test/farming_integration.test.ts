@@ -8,7 +8,7 @@ import {
   IAlgebraFactory,
   IFarmingCenter,
   INonfungiblePositionManager,
-  ISwapRouter
+  MockPlugin
 } from "../types";
 import { IAlgebraPool } from "../types/@cryptoalgebra/integral-core/contracts/interfaces/IAlgebraPool";
 import { AlgebraVault } from "../types/contracts/AlgebraVault";
@@ -50,6 +50,7 @@ describe("Farming Integration", () => {
   let algebraEternalFarming: IAlgebraEternalFarming;
   let farmingCenter: IFarmingCenter;
   let algebraVault: AlgebraVault;
+  let plugin: MockPlugin;
 
   let wallet: SignerWithAddress;
   let alice: SignerWithAddress;
@@ -75,6 +76,8 @@ describe("Farming Integration", () => {
 
     algebraPool = (await ethers.getContractAt("IAlgebraPool", poolAddress)) as IAlgebraPool;
     await algebraPool.initialize(encodePriceSqrt("1", "1"));
+
+    plugin = (await ethers.getContractAt("MockPlugin", await algebraPool.plugin())) as MockPlugin;
 
     let nonce = await algebraEternalFarming.numOfIncentives();
 
@@ -160,5 +163,25 @@ describe("Farming Integration", () => {
 
       expect(await nft.tokenFarmedIn(2)).to.be.equal(farmingCenter.address);
     });
+
+    it("CollectRewards()", async ()=> {
+      await algebraVault
+          .connect(alice)
+          .deposit(ethers.utils.parseEther("4000"), 0, alice.address);
+
+      await algebraVault.connect(wallet).rebalance(-1800, -1200, 180, 600, 0);
+      await algebraVault.setFarmingRewardsDistributor(other.address)
+
+      await plugin.updateVirtualPoolTick(500, false)
+
+      await network.provider.send("evm_increaseTime", [3600]);
+
+      await algebraVault.collectRewards()
+      const rewardBalance = await token2.balanceOf(other.address);
+      const bonusRewardBalance = await token1.balanceOf(other.address);
+
+      expect(rewardBalance).to.be.greaterThan(0)
+      expect(bonusRewardBalance).to.be.greaterThan(0)
+    })
   })
 });
