@@ -138,6 +138,8 @@ async function tokensFixture(): Promise<TokensFixture> {
 
 interface AlgebraVaultFactoryFixture {
   algebraVaultFactory: AlgebraVaultFactory;
+  algebraEternalFarming: IAlgebraEternalFarming;
+  farmingCenter: IFarmingCenter;
 }
 
 async function algebraVaultFactoryFixture(
@@ -151,16 +153,16 @@ async function algebraVaultFactoryFixture(
   const uV3Math = (await uV3MathFactory.deploy()) as UV3Math;
 
   const eternalFarmingFactory = new ethers.ContractFactory(ETERNAL_FARMING_ABI, ETERNAL_FARMING_BYTECODE, deployer);
-  const eternalFarming = (await eternalFarmingFactory.deploy(poolDeployer.address, nft.address)) as IAlgebraEternalFarming;
+  const algebraEternalFarming = (await eternalFarmingFactory.deploy(poolDeployer.address, nft.address)) as IAlgebraEternalFarming;
 
   const farmingCenterFactory = new ethers.ContractFactory(FARMING_CENTER_ABI, FARMING_CENTER_BYTECODE, deployer);
-  const farmingCenter = (await farmingCenterFactory.deploy(eternalFarming.address, nft.address)) as IFarmingCenter;
+  const farmingCenter = (await farmingCenterFactory.deploy(algebraEternalFarming.address, nft.address)) as IFarmingCenter;
 
   await nft.setFarmingCenter(farmingCenter.address);
 
-  await eternalFarming.setFarmingCenterAddress(farmingCenter.address);
+  await algebraEternalFarming.setFarmingCenterAddress(farmingCenter.address);
 
-  const incentiveMakerRole = await eternalFarming.INCENTIVE_MAKER_ROLE();
+  const incentiveMakerRole = await algebraEternalFarming.INCENTIVE_MAKER_ROLE();
 
   await (factory as any as IAccessControl).grantRole(incentiveMakerRole, deployer.address);
 
@@ -180,12 +182,12 @@ async function algebraVaultFactoryFixture(
   const algebraVaultFactory = (await algebraVaultFactoryFactory.deploy(
     factory.address,
     NULL_ADDRESS,
-    eternalFarming.address,
+      algebraEternalFarming.address,
     nft.address,
     "VEL"
   )) as AlgebraVaultFactory;
 
-  return { algebraVaultFactory };
+  return { algebraVaultFactory, algebraEternalFarming, farmingCenter};
 }
 
 type AlgebraVaultTestFixture = AlgebraFixture & TokensFixture & AlgebraVaultFactoryFixture;
@@ -193,7 +195,7 @@ type AlgebraVaultTestFixture = AlgebraFixture & TokensFixture & AlgebraVaultFact
 export const algebraVaultTestFixture: Fixture<AlgebraVaultTestFixture> = async function (): Promise<AlgebraVaultTestFixture> {
   const { factory, router, nft, pluginFactory, oracle, poolDeployer } = await algebraFixture();
   const { token0, token1, token2 } = await tokensFixture();
-  const { algebraVaultFactory } = await algebraVaultFactoryFixture(factory, poolDeployer, nft);
+  const { algebraVaultFactory, algebraEternalFarming, farmingCenter } = await algebraVaultFactoryFixture(factory, poolDeployer, nft);
 
   return {
     token0,
@@ -206,24 +208,7 @@ export const algebraVaultTestFixture: Fixture<AlgebraVaultTestFixture> = async f
     oracle,
     poolDeployer,
     algebraVaultFactory,
-  };
-};
-
-export const algebraVaultWithFarmingTestFixture: Fixture<AlgebraVaultTestFixture> = async function (): Promise<AlgebraVaultTestFixture> {
-  const { factory, router, nft, pluginFactory, oracle, poolDeployer } = await algebraFixture();
-  const { token0, token1, token2 } = await tokensFixture();
-  const { algebraVaultFactory } = await algebraVaultFactoryFixture(factory, poolDeployer, nft);
-
-  return {
-    token0,
-    token1,
-    token2,
-    factory,
-    router,
-    nft,
-    pluginFactory,
-    oracle,
-    poolDeployer,
-    algebraVaultFactory,
+    algebraEternalFarming,
+    farmingCenter
   };
 };

@@ -10,6 +10,8 @@ import './TestERC20.sol';
 contract MockPoolPlugin is VolatilityOraclePlugin {
     uint8 public constant defaultPluginConfig = uint8(Plugins.AFTER_INIT_FLAG | Plugins.BEFORE_SWAP_FLAG);
 
+    address public incentive;
+
     constructor(address _pool) BaseAbstractPlugin(_pool, address(0), msg.sender) {}
 
     event BeforeInitialize(address sender, uint160 sqrtPriceX96);
@@ -164,7 +166,12 @@ contract MockPoolPlugin is VolatilityOraclePlugin {
 
     event SetIncentive(address virtualPool);
 
-    function setIncentive(address _pool) external {
-        emit SetIncentive(_pool);
+    function setIncentive(address _incentive) external {
+        incentive = _incentive;
+        emit SetIncentive(_incentive);
+    }
+
+    function getPool() external view returns (address) {
+        return pool;
     }
 }
