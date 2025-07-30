@@ -104,7 +104,7 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         uint256 _vaultIndex
     ) ERC20("Algebra Vault Liquidity", UV3Math.computeAVsymbol(_vaultIndex, _pool, _allowToken0)) {
         if (_pool == NULL_ADDRESS) revert ZeroAddress();
-        if (_allowToken0 != _allowToken1) revert InvalidDeposit();
+        if (_allowToken0 == _allowToken1) revert InvalidDeposit();
 
         algebraVaultFactory = msg.sender;
         pool = _pool;
