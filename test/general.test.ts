@@ -420,9 +420,9 @@ describe("Input Validation Checks", () => {
   });
 
   it("AlgebraVault - rebalance", async () => {
-    const msg1 = "AV.rebalance: base position invalid",
-      msg3 = "AV.rebalance: identical positions",
-      msg2 = "AV.rebalance: limit position invalid";
+    const msg1 = "InvalidPosition",
+      msg3 = "IdenticalPositions",
+      msg2 = "InvalidPosition";
 
     // alice approves the AlgebraVault to transfer her tokens
     await token0.connect(alice).approve(algebraVault.address, largeTokenAmount);
@@ -438,11 +438,17 @@ describe("Input Validation Checks", () => {
 
     await algebraVault
       .connect(alice)
-      .deposit(ethers.utils.parseEther("4000"), ethers.utils.parseEther("4000"), alice.address);
+      .deposit(ethers.utils.parseEther("4000"), 0, alice.address);
 
-    await expect(algebraVault.connect(wallet).rebalance(-1800, -1200, -1800, -1200, 0)).to.be.revertedWith(msg3);
-    await expect(algebraVault.connect(wallet).rebalance(1800, 1200, 60, 600, 0)).to.be.revertedWith(msg1);
-    await expect(algebraVault.connect(wallet).rebalance(-1800, -1200, -180, -600, 0)).to.be.revertedWith(msg2);
+    await expect(algebraVault.connect(wallet).rebalance(
+        -1800, -1200, -1800, -1200, 0)
+    ).to.be.revertedWithCustomError(algebraVault, msg3);
+    await expect(algebraVault.connect(wallet).rebalance(
+        1800, 1200, 60, 600, 0)
+    ).to.be.revertedWithCustomError(algebraVault, msg1);
+    await expect(algebraVault.connect(wallet).rebalance(
+        -1800, -1200, -180, -600, 0)
+    ).to.be.revertedWithCustomError(algebraVault, msg2);
 
     //let afee = await algebraVaultFactory.connect(wallet).ammFee()
     //let bfee = await algebraVaultFactory.connect(wallet).baseFee()
@@ -456,31 +462,24 @@ describe("Input Validation Checks", () => {
     expect(balance1).to.be.equal(0);
 
     const rebalanceSwapAmount = ethers.utils.parseEther("4000");
-    await expect(algebraVault.connect(wallet).rebalance(1800, 1000, 50, 550, rebalanceSwapAmount)).to.be.revertedWith(
-      msg1,
-    );
-    await expect(algebraVault.connect(wallet).rebalance(-1800, 1000, 50, 550, rebalanceSwapAmount)).to.be.revertedWith(
-      msg1,
-    );
-    await expect(algebraVault.connect(wallet).rebalance(-1000, 1800, 50, 550, rebalanceSwapAmount)).to.be.revertedWith(
-      msg1,
-    );
+    await expect(algebraVault.connect(wallet).rebalance(1800, 1000, 50, 550, rebalanceSwapAmount)).to.be.revertedWithCustomError(algebraVault, msg1);
+    await expect(algebraVault.connect(wallet).rebalance(-1800, 1000, 50, 550, rebalanceSwapAmount)).to.be.revertedWithCustomError(algebraVault, msg1);
+    await expect(algebraVault.connect(wallet).rebalance(-1000, 1800, 50, 550, rebalanceSwapAmount)).to.be.revertedWithCustomError(algebraVault, msg1);
 
-    await expect(algebraVault.connect(wallet).rebalance(-1800, 1200, -50, -550, rebalanceSwapAmount)).to.be.revertedWith(
-      msg2,
-    );
-    await expect(algebraVault.connect(wallet).rebalance(-1800, 1200, -600, -500, rebalanceSwapAmount)).to.be.revertedWith(
-      msg2,
-    );
-    await expect(algebraVault.connect(wallet).rebalance(-1800, 1200, -600, -550, rebalanceSwapAmount)).to.be.revertedWith(
-      msg2,
-    );
+    await expect(algebraVault.connect(wallet).rebalance(-1800, 1200, -50, -550, rebalanceSwapAmount)).to.be.revertedWithCustomError(algebraVault, msg2);
+    await expect(algebraVault.connect(wallet).rebalance(-1800, 1200, -600, -500, rebalanceSwapAmount)).to.be.revertedWithCustomError(algebraVault, msg2);
+    await expect(algebraVault.connect(wallet).rebalance(
+        -1800, 1200, -600, -550, rebalanceSwapAmount)
+    ).to.be.revertedWithCustomError(algebraVault, msg2);
   });
 
   it("AlgebraVault - setTwapPeriod", async () => {
-    const msg1 = "AV.setTwapPeriod: missing period";
+    const msg1 = "ZeroValue"
 
-    await expect(algebraVault.connect(wallet).setTwapPeriod(0)).to.be.revertedWith(msg1);
+    await expect(algebraVault.connect(wallet).setTwapPeriod(0)).to.be.revertedWithCustomError(
+        algebraVault,
+        msg1
+    )
 
     await expect(algebraVault.connect(wallet).setTwapPeriod(1800))
       .to.emit(algebraVault, "SetTwapPeriod")
