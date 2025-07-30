@@ -24,6 +24,9 @@ const config: HardhatUserConfig = {
     outDir: "types",
   },
   networks: {
+    hardhat: {
+      allowUnlimitedContractSize: true,
+    },
     baseTestnet: {
       url: `https://sepolia.base.org`,
       chainId: 84532,
