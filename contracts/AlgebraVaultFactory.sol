@@ -2,10 +2,12 @@
 pragma solidity >=0.8.4;
 
 import { IAlgebraVaultFactory } from "./interfaces/IAlgebraVaultFactory.sol";
+import { IAlgebraVault } from "./interfaces/IAlgebraVault.sol";
 import { IAlgebraFactory } from "@cryptoalgebra/integral-core/contracts/interfaces/IAlgebraFactory.sol";
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import { AlgebraVaultDeployer } from "./lib/AlgebraVaultDeployer.sol";
+import { FarmingRewardsDistributorDeployer } from "./lib/FarmingRewardsDistributorDeployer.sol";
 import { IAlgebraPool } from "@cryptoalgebra/integral-core/contracts/interfaces/IAlgebraPool.sol";
 import { IAlgebraEternalFarming } from "@cryptoalgebra/integral-farming/contracts/interfaces/IAlgebraEternalFarming.sol";
 
@@ -64,6 +66,7 @@ contract AlgebraVaultFactory is IAlgebraVaultFactory, ReentrancyGuard, AccessCon
 
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(MANAGER_ROLE, msg.sender);
+        _grantRole(MANAGER_ROLE, address(this));
         _grantRole(REBALANCER_ROLE, msg.sender);
 
         emit DeployAlgebraVaultFactory(msg.sender, _algebraFactory);
@@ -126,6 +129,11 @@ contract AlgebraVaultFactory is IAlgebraVaultFactory, ReentrancyGuard, AccessCon
         getAlgebraVault[genKey(msg.sender, token0, token1, allowToken0, allowToken1)] = algebraVault;
         getAlgebraVault[genKey(msg.sender, token1, token0, allowToken1, allowToken0)] = algebraVault;
         allVaults.push(algebraVault);
+
+        address farmingRewardsDistributor = FarmingRewardsDistributorDeployer.createFarmingRewardsDistributor(
+            algebraVault
+        );
+        IAlgebraVault(algebraVault).setFarmingRewardsDistributor(farmingRewardsDistributor);
 
         emit AlgebraVaultCreated(msg.sender, algebraVault, token0, allowToken0, token1, allowToken1, allVaults.length);
     }

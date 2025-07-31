@@ -1,45 +1,37 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.20;
-pragma abicoder v2;
+pragma solidity ^0.8.12;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import {IHypervisor} from "./interfaces/IHypervisor.sol";
-import "./libraries/RewardCalculations.sol";
-import "./interfaces/IIncentiveMaker.sol";
 
-/// @title Multi Fee Distribution Contract
-/// @author Gamma
-/// @dev All function calls are currently implemented without side effects
-contract MultiFeeDistribution is
-Initializable,
-PausableUpgradeable,
-OwnableUpgradeable,
-ReentrancyGuard
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { Pausable } from "@openzeppelin/contracts/security/Pausable.sol";
+
+import { IAlgebraVault } from "./interfaces/IAlgebraVault.sol";
+//import { IMultiFeeDistributionFactory } from "./interfaces/IMultiFeeDistributionFactory.sol";
+
+/// @title Farming Rewards Distributor
+contract FarmingRewardsDistributor is Pausable, Ownable
 {
     using SafeERC20 for IERC20;
 
     struct RewardData {
         uint256 amount;
-        uint256 lastTimeUpdated;
+        uint256 lastTimeUpdated; // seems like it exists only for a null check in recoverERC20? i.e. if active reward don't allow owner to recover the reward token
         uint256 rewardPerToken;
     }
 
     struct UserData {
         uint256 tokenAmount;
-        uint256 lastTimeUpdated;
-        uint256 tokenClaimable;
+        uint256 lastTimeUpdated; // TODO: is this even really needed??
+        uint256 tokenClaimable; // TODO: is this even used??
         mapping(address => uint256) rewardPerToken;
     }
     /********************** Contract Addresses ***********************/
 
     /// @notice Address of LP token
-    address public stakingToken;
+    address public immutable stakingToken;
 
     /********************** Lock & Earn Info ***********************/
 
@@ -80,28 +72,19 @@ ReentrancyGuard
         uint256 reward
     );
     event Recovered(address indexed token, uint256 amount);
+    event RewardsUpdated();
 
     /********************** Errors ***********************/
     error AddressZero();
     error InvalidBurn();
     error InsufficientPermission();
     error ActiveReward();
+    error IsStakingToken();
     error InvalidAmount();
-    error InvalidToken();
 
-    /**
-     * @dev Constructor
-     */
-    function initialize(
-        address[] memory _rewardTokens
-    ) public initializer {
-        for (uint i; i < _rewardTokens.length; i ++) {
-            if (_rewardTokens[i] == address(0)) revert InvalidBurn();
-            rewardTokens.push(_rewardTokens[i]);
-        }
-
-        __Pausable_init();
-        __Ownable_init();
+    constructor(address _stakingToken) {
+        if (_stakingToken == address(0)) revert AddressZero();
+        stakingToken = _stakingToken;
     }
 
     /********************** Setters ***********************/
@@ -131,16 +114,6 @@ ReentrancyGuard
     }
 
     /**
-     * @notice Set LP token.
-     * @param _stakingToken LP token address
-     */
-    function setStakingToken(address _stakingToken) external onlyOwner {
-        if (_stakingToken == address(0)) revert AddressZero();
-        if (stakingToken != address(0)) revert AddressZero();
-        stakingToken = _stakingToken;
-    }
-
-    /**
      * @notice Add a new reward token to be distributed to stakers.
      * @param _rewardToken address
      */
@@ -151,19 +124,6 @@ ReentrancyGuard
             if (rewardTokens[i] == _rewardToken) revert ActiveReward();
         }
         rewardTokens.push(_rewardToken);
-    }
-
-    /**
-     * @notice Add a new reward token to be distributed to stakers.
-     * @param _rewardToken address
-     */
-    function removeRewardToken(address _rewardToken) external onlyOwner {
-        (bool isRewardTokenExist, uint256 index) = _isRewardTokenExist(_rewardToken);
-        if (!isRewardTokenExist)
-            revert InvalidToken();
-
-        rewardTokens[index] = rewardTokens[rewardTokens.length - 1];
-        rewardTokens.pop();
     }
 
     /********************** View functions ***********************/
@@ -177,8 +137,8 @@ ReentrancyGuard
         address tokenAddress,
         uint256 tokenAmount
     ) external onlyOwner {
+        if (tokenAddress == stakingToken) revert IsStakingToken();
         if (rewardData[tokenAddress].lastTimeUpdated > 0) revert ActiveReward();
-        if (tokenAddress == address(stakingToken)) revert InvalidToken();
         IERC20(tokenAddress).safeTransfer(owner(), tokenAmount);
         emit Recovered(tokenAddress, tokenAmount);
     }
@@ -193,131 +153,31 @@ ReentrancyGuard
         return userData[user].tokenAmount;
     }
 
-    /********************** Reward functions ***********************/
-
-    function totalUnclaimedRewards() public view returns (address[] memory rewardAddresses, uint256[] memory rewardAmounts) {
-        // Get NFT IDs from hypervisor
-        uint256 baseNftId = IHypervisor(stakingToken).baseNftId();
-        uint256 limitNftId = IHypervisor(stakingToken).limitNftId();
-
-        // Get farming center and pool from hypervisor
-        IFarmingCenter farmingCenter = IFarmingCenter(IHypervisor(stakingToken).farmingCenter());
-        IAlgebraPool pool = IAlgebraPool(IHypervisor(stakingToken).pool());
-
-        // Initialize arrays
-        rewardAddresses = new address[](2);
-        rewardAmounts = new uint256[](2);
-
-        // Get reward tokens from hypervisor
-        rewardAddresses[0] = address(IHypervisor(stakingToken).rewardToken());
-        rewardAddresses[1] = address(IHypervisor(stakingToken).bonusRewardToken());
-
-        // Calculate unclaimed rewards for base position
-        (uint256 baseReward, uint256 baseBonusReward) = RewardCalculations.getRewardsForPosition(
-            baseNftId,
-            farmingCenter,
-            pool
-        );
-
-        // Calculate unclaimed rewards for limit position
-        (uint256 limitReward, uint256 limitBonusReward) = RewardCalculations.getRewardsForPosition(
-            limitNftId,
-            farmingCenter,
-            pool
-        );
-
-        // Sum up total unclaimed rewards
-        rewardAmounts[0] = baseReward + limitReward;
-        rewardAmounts[1] = baseBonusReward + limitBonusReward;
+    /// @dev added this function as it doesn't seem possible to get this using the ABI
+    ///      https://ethereum.stackexchange.com/questions/143185/retreive-a-mapping-nested-inside-a-struct-from-ethers
+    function getUserRewardPerToken(address user, address rewardToken) external view returns (uint256) {
+        return userData[user].rewardPerToken[rewardToken];
     }
+
+    /********************** Reward functions ***********************/
 
     /**
      * @notice Address and claimable amount of all reward tokens for the given account.
      * @param account for rewards
      * @return rewardsData array of rewards
+     * @dev this estimation doesn't include rewards that are yet to be collected from the ICHIVault via collectRewards
      */
-
     function claimableRewards(
         address account
     ) public view returns (address[] memory, uint256[] memory) {
         uint256[] memory rewardAmounts = new uint256[](rewardTokens.length);
-
-        // Get unclaimed farming rewards
-        (address[] memory unclaimedAddresses, uint256[] memory unclaimedAmounts) = totalUnclaimedRewards();
-
-        for (uint256 i; i < rewardTokens.length; i++) {
-            address token = rewardTokens[i];
-            RewardData memory r = rewardData[token];
-            uint256 newRewardPerToken = r.rewardPerToken;
-
-            // Check if this reward token is either the main reward token or bonus reward token
-            if (token == unclaimedAddresses[0] || token == unclaimedAddresses[1]) {
-                uint256 unclaimedAmount = token == unclaimedAddresses[0] ? unclaimedAmounts[0] : unclaimedAmounts[1];
-                uint256 currentBalance = IERC20(token).balanceOf(address(this));
-
-                // Calculate new reward per token including unclaimed rewards
-                if (totalStakes > 0) {
-                    uint256 additionalRewards = currentBalance + unclaimedAmount - r.amount;
-                    newRewardPerToken += additionalRewards * 1e50 / totalStakes;
-                }
-            }
-
-            // Calculate claimable amount using potentially updated reward per token
-            uint256 userRewardPerToken = userData[account].rewardPerToken[token];
-            uint256 pendingReward = 0;
-
-            if (userData[account].lastTimeUpdated > 0 && userData[account].tokenAmount > 0) {
-                pendingReward = (newRewardPerToken - userRewardPerToken) * userData[account].tokenAmount / 1e50;
-            }
-
-            rewardAmounts[i] = claimable[token][account] + pendingReward;
+        for (uint256 i; i < rewardTokens.length; i ++) {
+            rewardAmounts[i] = claimable[rewardTokens[i]][account] + _earned(
+                account,
+                rewardTokens[i]
+            ) / 1e50;
         }
-
         return (rewardTokens, rewardAmounts);
-    }
-
-    /**
-     * @notice Get the current reward rates per second for each reward token
-     * @return rewardAddresses Array of reward token addresses [rewardToken, bonusRewardToken]
-     * @return rewardRatesPerSecond Array of reward rates per second [reward rate, bonus reward rate]
-     */
-    function getRewardRatesPerSecond() public view returns (
-        address[] memory rewardAddresses,
-        uint256[] memory rewardRatesPerSecond
-    ) {
-        // Get NFT IDs from hypervisor
-        uint256 baseNftId = IHypervisor(stakingToken).baseNftId();
-        uint256 limitNftId = IHypervisor(stakingToken).limitNftId();
-
-        // Get farming center and pool from hypervisor
-        IFarmingCenter farmingCenter = IFarmingCenter(IHypervisor(stakingToken).farmingCenter());
-        IAlgebraPool pool = IAlgebraPool(IHypervisor(stakingToken).pool());
-
-        // Initialize arrays
-        rewardAddresses = new address[](2);
-        rewardRatesPerSecond = new uint256[](2);
-
-        // Get reward tokens from hypervisor
-        rewardAddresses[0] = address(IHypervisor(stakingToken).rewardToken());
-        rewardAddresses[1] = address(IHypervisor(stakingToken).bonusRewardToken());
-
-        // Get rewards per second for base position
-        (uint256 baseReward, uint256 baseBonusReward) = RewardCalculations.getLastSecondRewards(
-            baseNftId,
-            farmingCenter,
-            pool
-        );
-
-        // Get rewards per second for limit position
-        (uint256 limitReward, uint256 limitBonusReward) = RewardCalculations.getLastSecondRewards(
-            limitNftId,
-            farmingCenter,
-            pool
-        );
-
-        // Combine rates from both positions
-        rewardRatesPerSecond[0] = baseReward + limitReward;
-        rewardRatesPerSecond[1] = baseBonusReward + limitBonusReward;
     }
 
     /********************** Operate functions ***********************/
@@ -331,17 +191,7 @@ ReentrancyGuard
     function stake(
         uint256 amount,
         address onBehalfOf
-    ) external nonReentrant{
-        _stake(amount, onBehalfOf);
-    }
-
-    /**
-    * @notice Stake all available tokens to receive rewards.
-    * @dev Locked tokens cannot be withdrawn for defaultLockDuration and are eligible to receive rewards.
-    * @param onBehalfOf address for staking.
-    */
-    function stakeAll(address onBehalfOf) external nonReentrant {
-        uint256 amount = IERC20(stakingToken).balanceOf(msg.sender);
+    ) external {
         _stake(amount, onBehalfOf);
     }
 
@@ -355,7 +205,7 @@ ReentrancyGuard
         uint256 amount,
         address onBehalfOf
     ) internal whenNotPaused {
-        if (amount == 0) return;
+        if (amount == 0) revert InvalidAmount();
         _updateReward();
 
         for (uint i; i < rewardTokens.length; i ++) {
@@ -374,14 +224,13 @@ ReentrancyGuard
         emit Stake(onBehalfOf, amount);
     }
 
-    function unstake(uint256 amount) external nonReentrant {
+    function unstake(uint256 amount) external {
         _unstake(amount, msg.sender);
-        _getReward(msg.sender, rewardTokens);
     }
 
     function _unstake(uint256 amount, address onBehalfOf) internal {
         UserData storage userInfo = userData[onBehalfOf];
-        if (userInfo.tokenAmount < amount)
+        if (userInfo.tokenAmount < amount || amount == 0)
             revert InvalidAmount();
         _updateReward();
         for (uint i; i < rewardTokens.length; i ++) {
@@ -394,19 +243,20 @@ ReentrancyGuard
 
         emit Unstake(onBehalfOf, amount);
     }
+
     /**
      * @notice Claim all pending staking rewards.
      * @param _rewardTokens array of reward tokens
      */
-    function getReward(address _onBehalfOf, address[] memory _rewardTokens) external nonReentrant {
-        _getReward(_onBehalfOf, _rewardTokens);
+    function getReward(address _onBehalfOf, address[] memory _rewardTokens) external returns (uint256[] memory claimableAmounts) {
+        claimableAmounts = _getReward(_onBehalfOf, _rewardTokens);
     }
 
     /**
      * @notice Claim all pending staking rewards.
      */
-    function getAllRewards() external nonReentrant {
-        _getReward(msg.sender, rewardTokens);
+    function getAllRewards() external returns (uint256[] memory claimableAmounts) {
+        claimableAmounts = _getReward(msg.sender, rewardTokens);
     }
 
     function updateReward() external {
@@ -433,7 +283,7 @@ ReentrancyGuard
      * @notice Update user reward info.
      */
     function _updateReward() internal {
-        IHypervisor(stakingToken).getReward();
+        IAlgebraVault(stakingToken).collectRewards();
         for (uint i; i < rewardTokens.length; i ++) {
             address rewardToken = rewardTokens[i];
             if (totalStakes > 0) {
@@ -445,6 +295,7 @@ ReentrancyGuard
                 r.amount = currentBalance;
             }
         }
+        emit RewardsUpdated();
     }
 
     function _calculateClaimable(address _onBehalf, address _rewardToken) internal {
@@ -467,29 +318,23 @@ ReentrancyGuard
     function _getReward(
         address _user,
         address[] memory _rewardTokens
-    ) internal whenNotPaused {
-        for (uint256 i; i < _rewardTokens.length; i ++) {
+    ) internal whenNotPaused returns (uint256[] memory claimableAmounts) {
+
+        claimableAmounts = new uint256[](_rewardTokens.length);
+
+        for (uint256 i; i < _rewardTokens.length; i++) {
             address token = _rewardTokens[i];
             RewardData storage r = rewardData[token];
             _updateReward();
             _calculateClaimable(_user, token);
             if (claimable[token][_user] > 0) {
+                // we store the claimableAmount for this current rewardToken
+                claimableAmounts[i] = claimable[token][_user];
+
                 IERC20(token).safeTransfer(_user, claimable[token][_user]);
                 r.amount -= claimable[token][_user];
-                claimable[token][_user] = 0;
                 emit RewardPaid(_user, token, claimable[token][_user]);
-            }
-        }
-    }
-
-    function _isRewardTokenExist(address _rewardToken) internal view returns (bool rewardTokenFound, uint256 index) {
-        uint256 rewardTokenLength = rewardTokens.length;
-
-        for (uint256 i; i < rewardTokenLength; i ++) {
-            if (rewardTokens[i] == _rewardToken) {
-                rewardTokenFound = true;
-                index = i;
-                break;
+                claimable[token][_user] = 0;
             }
         }
     }

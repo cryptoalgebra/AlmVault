@@ -173,9 +173,13 @@ async function algebraVaultFactoryFixture(
   });
   const libAlgebraVaultDeployer = await algebraVaultDeployer.deploy();
 
+  const farmingRewardsDistributorDeployer = await ethers.getContractFactory("FarmingRewardsDistributorDeployer");
+  const libFarmingRewardsDistributorDeployer = await farmingRewardsDistributorDeployer.deploy();
+
   const algebraVaultFactoryFactory = await ethers.getContractFactory("AlgebraVaultFactory", {
     libraries: {
       AlgebraVaultDeployer: libAlgebraVaultDeployer.address,
+      FarmingRewardsDistributorDeployer: libFarmingRewardsDistributorDeployer.address
     },
   });
 
