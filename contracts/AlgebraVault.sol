@@ -248,17 +248,17 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         bytes32 incentiveId = _farmingCenter().deposits(tokenId);
 
         (
-            IERC20Minimal rewardToken,
-            IERC20Minimal bonusRewardToken,
-            IAlgebraPool pool,
-            uint256 nonce
+            IERC20Minimal _rewardToken,
+            IERC20Minimal _bonusRewardToken,
+            IAlgebraPool _pool,
+            uint256 _nonce
         ) = _farmingCenter().incentiveKeys(incentiveId);
 
         return IncentiveKey({
-            rewardToken: rewardToken,
-            bonusRewardToken: bonusRewardToken,
-            pool: pool,
-            nonce: nonce
+            rewardToken: _rewardToken,
+            bonusRewardToken: _bonusRewardToken,
+            pool: _pool,
+            nonce: _nonce
         });
     }
 
