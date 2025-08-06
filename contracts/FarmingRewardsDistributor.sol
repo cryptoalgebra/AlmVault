@@ -9,25 +9,12 @@ import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { Pausable } from "@openzeppelin/contracts/security/Pausable.sol";
 
 import { IAlgebraVault } from "./interfaces/IAlgebraVault.sol";
-//import { IMultiFeeDistributionFactory } from "./interfaces/IMultiFeeDistributionFactory.sol";
+import { IFarmingRewardsDistributor } from "./interfaces/IFarmingRewardsDistributor.sol";
 
 /// @title Farming Rewards Distributor
-contract FarmingRewardsDistributor is Pausable, Ownable
-{
+contract FarmingRewardsDistributor is IFarmingRewardsDistributor, Pausable, Ownable {
     using SafeERC20 for IERC20;
 
-    struct RewardData {
-        uint256 amount;
-        uint256 lastTimeUpdated; // seems like it exists only for a null check in recoverERC20? i.e. if active reward don't allow owner to recover the reward token
-        uint256 rewardPerToken;
-    }
-
-    struct UserData {
-        uint256 tokenAmount;
-        uint256 lastTimeUpdated; // TODO: is this even really needed??
-        uint256 tokenClaimable; // TODO: is this even used??
-        mapping(address => uint256) rewardPerToken;
-    }
     /********************** Contract Addresses ***********************/
 
     /// @notice Address of LP token
@@ -40,47 +27,23 @@ contract FarmingRewardsDistributor is Pausable, Ownable
 
     /********************** Reward Info ***********************/
 
+    /// @notice address => RPT
+    mapping(address => UserData) internal userData;
+
     /// @notice Reward tokens being distributed
-    address[] public rewardTokens;
+    address[] public override rewardTokens;
 
     /// @notice address => RPT
-    mapping(address => RewardData) public rewardData;
-
-    /// @notice address => RPT
-    mapping(address => UserData) public userData;
+    mapping(address => RewardData) public override rewardData;
 
     /// @notice rewardToken => user => claimable amount
-    mapping(address => mapping(address => uint256)) public claimable;
+    mapping(address => mapping(address => uint256)) public override claimable;
+
     /********************** Other Info ***********************/
 
     /// @notice Addresses approved to call mint
-    mapping(address => bool) public managers;
+    mapping(address => bool) public override managers;
 
-    /********************** Events ***********************/
-
-    event Stake(
-        address indexed user,
-        uint256 amount
-    );
-    event Unstake(
-        address indexed user,
-        uint256 receivedAmount
-    );
-    event RewardPaid(
-        address indexed user,
-        address indexed rewardToken,
-        uint256 reward
-    );
-    event Recovered(address indexed token, uint256 amount);
-    event RewardsUpdated();
-
-    /********************** Errors ***********************/
-    error AddressZero();
-    error InvalidBurn();
-    error InsufficientPermission();
-    error ActiveReward();
-    error IsStakingToken();
-    error InvalidAmount();
 
     constructor(address _stakingToken) {
         if (_stakingToken == address(0)) revert AddressZero();
@@ -93,7 +56,7 @@ contract FarmingRewardsDistributor is Pausable, Ownable
      * @notice Set managers
      * @param _managers array of address
      */
-    function setManagers(address[] calldata _managers) external onlyOwner {
+    function setManagers(address[] calldata _managers) external override onlyOwner {
         uint256 length = _managers.length;
         for (uint256 i; i < length; i ++) {
             if (_managers[i] == address(0)) revert AddressZero();
@@ -105,7 +68,7 @@ contract FarmingRewardsDistributor is Pausable, Ownable
      * @notice Remove managers
      * @param _managers array of address
      */
-    function removeManagers(address[] calldata _managers) external onlyOwner {
+    function removeManagers(address[] calldata _managers) external override onlyOwner {
         uint256 length = _managers.length;
         for (uint256 i; i < length; i ++) {
             if (_managers[i] == address(0)) revert AddressZero();
@@ -117,7 +80,7 @@ contract FarmingRewardsDistributor is Pausable, Ownable
      * @notice Add a new reward token to be distributed to stakers.
      * @param _rewardToken address
      */
-    function addReward(address _rewardToken) external {
+    function addReward(address _rewardToken) external override {
         if (_rewardToken == address(0)) revert InvalidBurn();
         if (!managers[msg.sender]) revert InsufficientPermission();
         for (uint i; i < rewardTokens.length; i ++) {
@@ -136,7 +99,7 @@ contract FarmingRewardsDistributor is Pausable, Ownable
     function recoverERC20(
         address tokenAddress,
         uint256 tokenAmount
-    ) external onlyOwner {
+    ) external override onlyOwner {
         if (tokenAddress == stakingToken) revert IsStakingToken();
         if (rewardData[tokenAddress].lastTimeUpdated > 0) revert ActiveReward();
         IERC20(tokenAddress).safeTransfer(owner(), tokenAmount);
@@ -149,14 +112,20 @@ contract FarmingRewardsDistributor is Pausable, Ownable
      */
     function totalBalance(
         address user
-    ) external view returns (uint256) {
+    ) external override view returns (uint256) {
         return userData[user].tokenAmount;
     }
 
     /// @dev added this function as it doesn't seem possible to get this using the ABI
     ///      https://ethereum.stackexchange.com/questions/143185/retreive-a-mapping-nested-inside-a-struct-from-ethers
-    function getUserRewardPerToken(address user, address rewardToken) external view returns (uint256) {
+    function getUserRewardPerToken(address user, address rewardToken) external override view returns (uint256) {
         return userData[user].rewardPerToken[rewardToken];
+    }
+
+    function getUserData(address user) external override view returns (uint256 tokenAmount, uint256 lastTimeUpdated, uint256 tokenClaimable) {
+        tokenAmount = userData[user].tokenAmount;
+        lastTimeUpdated = userData[user].lastTimeUpdated;
+        tokenClaimable = userData[user].tokenClaimable;
     }
 
     /********************** Reward functions ***********************/
@@ -169,7 +138,7 @@ contract FarmingRewardsDistributor is Pausable, Ownable
      */
     function claimableRewards(
         address account
-    ) public view returns (address[] memory, uint256[] memory) {
+    ) public override view returns (address[] memory, uint256[] memory) {
         uint256[] memory rewardAmounts = new uint256[](rewardTokens.length);
         for (uint256 i; i < rewardTokens.length; i ++) {
             rewardAmounts[i] = claimable[rewardTokens[i]][account] + _earned(
@@ -191,7 +160,7 @@ contract FarmingRewardsDistributor is Pausable, Ownable
     function stake(
         uint256 amount,
         address onBehalfOf
-    ) external {
+    ) external override {
         _stake(amount, onBehalfOf);
     }
 
@@ -224,7 +193,7 @@ contract FarmingRewardsDistributor is Pausable, Ownable
         emit Stake(onBehalfOf, amount);
     }
 
-    function unstake(uint256 amount) external {
+    function unstake(uint256 amount) external override {
         _unstake(amount, msg.sender);
     }
 
@@ -248,18 +217,18 @@ contract FarmingRewardsDistributor is Pausable, Ownable
      * @notice Claim all pending staking rewards.
      * @param _rewardTokens array of reward tokens
      */
-    function getReward(address _onBehalfOf, address[] memory _rewardTokens) external returns (uint256[] memory claimableAmounts) {
+    function getReward(address _onBehalfOf, address[] memory _rewardTokens) external override returns (uint256[] memory claimableAmounts) {
         claimableAmounts = _getReward(_onBehalfOf, _rewardTokens);
     }
 
     /**
      * @notice Claim all pending staking rewards.
      */
-    function getAllRewards() external returns (uint256[] memory claimableAmounts) {
+    function getAllRewards() external override returns (uint256[] memory claimableAmounts) {
         claimableAmounts = _getReward(msg.sender, rewardTokens);
     }
 
-    function updateReward() external {
+    function updateReward() external override {
         _updateReward();
     }
 
@@ -344,14 +313,14 @@ contract FarmingRewardsDistributor is Pausable, Ownable
     /**
      * @notice Pause MFD functionalities
      */
-    function pause() public onlyOwner {
+    function pause() public override onlyOwner {
         _pause();
     }
 
     /**
      * @notice Resume MFD functionalities
      */
-    function unpause() public onlyOwner {
+    function unpause() public override onlyOwner {
         _unpause();
     }
 }
