@@ -4,26 +4,31 @@ pragma solidity ^0.8.12;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
 import { Pausable } from "@openzeppelin/contracts/security/Pausable.sol";
 
 import { IAlgebraVault } from "./interfaces/IAlgebraVault.sol";
+import { IAlgebraVaultFactory } from "./interfaces/IAlgebraVaultFactory.sol";
 import { IFarmingRewardsDistributor } from "./interfaces/IFarmingRewardsDistributor.sol";
 
+import {console} from "hardhat/console.sol";
+
 /// @title Farming Rewards Distributor
-contract FarmingRewardsDistributor is IFarmingRewardsDistributor, Pausable, Ownable {
+contract FarmingRewardsDistributor is IFarmingRewardsDistributor, Pausable {
     using SafeERC20 for IERC20;
 
     /********************** Contract Addresses ***********************/
 
+    /// @notice Address of the factory
+    address public override immutable algebraVaultFactory;
+
     /// @notice Address of LP token
-    address public immutable stakingToken;
+    address public override immutable stakingToken;
 
     /********************** Lock & Earn Info ***********************/
 
     /// @notice Total locked value
-    uint256 public totalStakes;
+    uint256 public override totalStakes;
 
     /********************** Reward Info ***********************/
 
@@ -44,45 +49,34 @@ contract FarmingRewardsDistributor is IFarmingRewardsDistributor, Pausable, Owna
     /// @notice Addresses approved to call mint
     mapping(address => bool) public override managers;
 
+    function _checkManager() private view {
+        if (!IAccessControl(algebraVaultFactory).hasRole(
+            IAlgebraVaultFactory(algebraVaultFactory).MANAGER_ROLE(),
+            msg.sender
+        )) revert InsufficientPermission();
+    }
+
+    modifier onlyManager() {
+        _checkManager();
+        _;
+    }
+
 
     constructor(address _stakingToken) {
         if (_stakingToken == address(0)) revert AddressZero();
         stakingToken = _stakingToken;
+
+        algebraVaultFactory = msg.sender;
     }
 
     /********************** Setters ***********************/
 
     /**
-     * @notice Set managers
-     * @param _managers array of address
-     */
-    function setManagers(address[] calldata _managers) external override onlyOwner {
-        uint256 length = _managers.length;
-        for (uint256 i; i < length; i ++) {
-            if (_managers[i] == address(0)) revert AddressZero();
-            managers[_managers[i]] = true;
-        }
-    }
-
-    /**
-     * @notice Remove managers
-     * @param _managers array of address
-     */
-    function removeManagers(address[] calldata _managers) external override onlyOwner {
-        uint256 length = _managers.length;
-        for (uint256 i; i < length; i ++) {
-            if (_managers[i] == address(0)) revert AddressZero();
-            managers[_managers[i]] = false;
-        }
-    }
-
-    /**
      * @notice Add a new reward token to be distributed to stakers.
      * @param _rewardToken address
      */
-    function addReward(address _rewardToken) external override {
+    function addReward(address _rewardToken) external onlyManager override {
         if (_rewardToken == address(0)) revert InvalidBurn();
-        if (!managers[msg.sender]) revert InsufficientPermission();
         for (uint i; i < rewardTokens.length; i ++) {
             if (rewardTokens[i] == _rewardToken) revert ActiveReward();
         }
@@ -99,10 +93,10 @@ contract FarmingRewardsDistributor is IFarmingRewardsDistributor, Pausable, Owna
     function recoverERC20(
         address tokenAddress,
         uint256 tokenAmount
-    ) external override onlyOwner {
+    ) external override onlyManager {
         if (tokenAddress == stakingToken) revert IsStakingToken();
         if (rewardData[tokenAddress].lastTimeUpdated > 0) revert ActiveReward();
-        IERC20(tokenAddress).safeTransfer(owner(), tokenAmount);
+        IERC20(tokenAddress).safeTransfer(msg.sender, tokenAmount);
         emit Recovered(tokenAddress, tokenAmount);
     }
 
@@ -313,14 +307,14 @@ contract FarmingRewardsDistributor is IFarmingRewardsDistributor, Pausable, Owna
     /**
      * @notice Pause MFD functionalities
      */
-    function pause() public override onlyOwner {
+    function pause() public override onlyManager {
         _pause();
     }
 
     /**
      * @notice Resume MFD functionalities
      */
-    function unpause() public override onlyOwner {
+    function unpause() public override onlyManager {
         _unpause();
     }
 }

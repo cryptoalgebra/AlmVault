@@ -16,6 +16,9 @@ interface IFarmingRewardsDistributor {
         mapping(address => uint256) rewardPerToken;
     }
 
+    /// @notice Address of the factory
+    function algebraVaultFactory() external view returns (address);
+
     /// @notice Address of LP token
     function stakingToken() external view returns (address);
 
@@ -57,18 +60,6 @@ interface IFarmingRewardsDistributor {
     error ActiveReward();
     error IsStakingToken();
     error InvalidAmount();
-
-    /**
-     * @notice Set managers
-     * @param _managers array of address
-     */
-    function setManagers(address[] calldata _managers) external;
-
-    /**
-     * @notice Remove managers
-     * @param _managers array of address
-     */
-    function removeManagers(address[] calldata _managers) external;
 
     /**
      * @notice Add a new reward token to be distributed to stakers.
