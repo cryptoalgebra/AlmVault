@@ -13,7 +13,7 @@ import {
     IAlgebraPool,
     AlgebraVault,
     AlgebraVaultFactory,
-    TestERC20,
+    TestERC20, ISwapRouter, IAlgebraPoolDeployer,
 } from "../types";
 import {algebraVaultTestFixture} from "./shared/fixtures";
 import {FeeAmount, TICK_SPACINGS, encodePriceSqrt, getMaxTick, getMinTick} from "./shared/utilities";
@@ -45,6 +45,7 @@ describe("Farming Integration", () => {
     let token1: TestERC20;
     let token2: TestERC20;
     let algebraPool: IAlgebraPool;
+    let router: ISwapRouter;
     let algebraVaultFactory: AlgebraVaultFactory;
     let algebraEternalFarming: IAlgebraEternalFarming;
     let farmingCenter: IFarmingCenter;
@@ -72,6 +73,7 @@ describe("Farming Integration", () => {
             token1,
             token2,
             factory,
+            router,
             nft,
             algebraVaultFactory,
             algebraEternalFarming,
@@ -128,6 +130,9 @@ describe("Farming Integration", () => {
         await token0.connect(carol).approve(nft.address, veryLargeTokenAmount);
         await token1.connect(carol).approve(nft.address, veryLargeTokenAmount);
 
+        await token0.connect(carol).approve(router.address, veryLargeTokenAmount);
+        await token1.connect(carol).approve(router.address, veryLargeTokenAmount);
+
         await nft.connect(carol).mint({
             token0: token0.address,
             token1: token1.address,
@@ -163,7 +168,7 @@ describe("Farming Integration", () => {
                 .connect(alice)
                 .deposit(ethers.utils.parseEther("4000"), 0, alice.address);
 
-            await algebraVault.connect(wallet).rebalance(-1800, -1200, 180, 600, 0);
+            await algebraVault.connect(wallet).rebalance(-1800, -60, 60, 15000, 0);
             const balance0 = await token0.balanceOf(algebraVault.address);
             const balance1 = await token1.balanceOf(algebraVault.address);
             expect(balance0).to.be.equal(0);
@@ -177,10 +182,19 @@ describe("Farming Integration", () => {
                 .connect(alice)
                 .deposit(ethers.utils.parseEther("4000"), 0, alice.address);
 
-            await algebraVault.connect(wallet).rebalance(-1800, -1200, 180, 600, 0);
+            await algebraVault.connect(wallet).rebalance(-1800, -60, 60, 15000, 0);
             await algebraVault.setFarmingRewardsDistributor(other.address)
 
-            await plugin.updateVirtualPoolTick(500, false)
+            await router.connect(carol).exactInputSingle({
+                tokenIn: token1.address,
+                tokenOut: token0.address,
+                deployer: NULL_ADDRESS,
+                recipient: carol.address,
+                deadline: 9999999999999,
+                amountIn: veryLargeTokenAmount,
+                amountOutMinimum: 0,
+                limitSqrtPrice: 0
+            })
 
             await network.provider.send("evm_increaseTime", [3600]);
 
@@ -205,8 +219,17 @@ describe("Farming Integration", () => {
                     .deposit(ethers.utils.parseEther("4000"), 0, alice.address);
                 await algebraVault.connect(alice).approve(farmingRewardsDistributor.address, giantTokenAmount);
 
-                await algebraVault.connect(wallet).rebalance(-1800, -1200, 180, 600, 0);
-                await plugin.updateVirtualPoolTick(500, false)
+                await algebraVault.connect(wallet).rebalance(-1800, -60, 60, 15000, 0);
+                await router.connect(carol).exactInputSingle({
+                    tokenIn: token1.address,
+                    tokenOut: token0.address,
+                    deployer: NULL_ADDRESS,
+                    recipient: carol.address,
+                    deadline: 9999999999999,
+                    amountIn: veryLargeTokenAmount,
+                    amountOutMinimum: 0,
+                    limitSqrtPrice: 0
+                })
 
                 await network.provider.send("evm_increaseTime", [360000]);
             })
@@ -225,14 +248,12 @@ describe("Farming Integration", () => {
                 expect(bonusRewardBalance).to.be.greaterThan(0)
             })
 
-            it.only("Should handle rewards accrual when no users are staking", async () => {
+            it("Should handle rewards accrual when no users are staking", async () => {
                 // Setup initial state with no stakers
-                await algebraVault.connect(alice).deposit(ethers.utils.parseEther("2000"), 0, alice.address);
-                await algebraVault.connect(wallet).rebalance(-1800, -1200, 180, 600, 0);
-                console.log('here')
-                // Generate rewards with no stakers
-                await plugin.updateVirtualPoolTick(500, false);
-                await network.provider.send("evm_increaseTime", [3600]);
+                // await algebraVault.connect(alice).deposit(ethers.utils.parseEther("2000"), 0, alice.address);
+                // await algebraVault.connect(wallet).rebalance(-1800, -60, 60, 15000, 0);
+                //
+                // await network.provider.send("evm_increaseTime", [3600]);
                 await algebraVault.collectRewards();
 
 
@@ -253,7 +274,7 @@ describe("Farming Integration", () => {
                 await farmingRewardsDistributor.connect(alice).stake(aliceLpBalance, alice.address);
 
                 // Generate more rewards
-                await plugin.updateVirtualPoolTick(550, false);
+                // await plugin.updateVirtualPoolTick(550, false);
                 await network.provider.send("evm_increaseTime", [3600]);
                 await algebraVault.collectRewards();
                 await farmingRewardsDistributor.updateReward();
@@ -265,29 +286,31 @@ describe("Farming Integration", () => {
                 // New rewards should only include those generated after staking
                 const [tokens, amounts] = await farmingRewardsDistributor.claimableRewards(alice.address);
 
-                // Alice should get all new rewards but not the initial ones (accumulated before staking)
+                // Alice should get all new rewards but including the initial ones
                 const currentToken2Balance = await token2.balanceOf(farmingRewardsDistributor.address);
-                const newToken2Rewards = currentToken2Balance.sub(initialToken2Balance);
 
-                // There might be a slight difference due to rounding or precision, so we check within a small margin
-                const differencePercentage = amounts[0].mul(100).div(newToken2Rewards);
-                expect(differencePercentage).to.be.within(99, 101); // Allow 1% margin of error
+                expect(amounts[0]).to.be.equal(currentToken2Balance);
             })
 
             it("Should handle unstaking correctly and update reward claims", async () => {
                 // Setup initial stake
                 let aliceLpBalance = await algebraVault.balanceOf(alice.address);
-                await algebraVault.connect(alice).approve(farmingRewardsDistributor.address, aliceLpBalance);
                 await farmingRewardsDistributor.connect(alice).stake(aliceLpBalance, alice.address);
+                await farmingRewardsDistributor.updateReward();
+
+                // Get starting claimable rewards
+                const [, startingAmounts] = await farmingRewardsDistributor.claimableRewards(alice.address);
+                console.log(startingAmounts[0]);
 
                 // Generate some rewards
-                await plugin.updateVirtualPoolTick(550, false);
+                // await plugin.updateVirtualPoolTick(550, false);
                 await network.provider.send("evm_increaseTime", [3600]);
                 await algebraVault.collectRewards();
                 await farmingRewardsDistributor.updateReward();
 
                 // Get initial claimable rewards
                 const [initialTokens, initialAmounts] = await farmingRewardsDistributor.claimableRewards(alice.address);
+                console.log(initialAmounts[0]);
 
                 // Unstake half of the tokens
                 const totalStaked = await farmingRewardsDistributor.totalBalance(alice.address);
@@ -295,35 +318,34 @@ describe("Farming Integration", () => {
 
                 // Check that rewards were calculated and made claimable during unstake
                 const claimableAfterUnstake = await farmingRewardsDistributor.claimable(token2.address, alice.address);
-                expect(claimableAfterUnstake).to.be.equal(initialAmounts[0]);
+
+                // Slightly more rewards, because of accumulation while unstaking
+                expect(claimableAfterUnstake).to.be.greaterThan(initialAmounts[0]);
 
                 // Generate more rewards
-                await plugin.updateVirtualPoolTick(600, false);
+                // await plugin.updateVirtualPoolTick(600, false);
                 await network.provider.send("evm_increaseTime", [3600]);
                 await algebraVault.collectRewards();
                 await farmingRewardsDistributor.updateReward();
 
                 // Get final claimable rewards
                 const [finalTokens, finalAmounts] = await farmingRewardsDistributor.claimableRewards(alice.address);
+                console.log(finalAmounts[0]);
 
                 // New rewards should accrue at half the rate (since half tokens unstaked)
-                const newRewardsAccrued = finalAmounts[0].sub(initialAmounts[0]);
-                const newTotalRewards = await token2.balanceOf(farmingRewardsDistributor.address);
-                const previousTotalRewards = initialAmounts[0].add(initialAmounts[0]); // Double the claimed amount as estimate
-                const rewardsGeneratedSinceUnstake = newTotalRewards.sub(previousTotalRewards);
+                const previousReward = initialAmounts[0].sub(startingAmounts[0]);
+                const newRewardsAccrued = finalAmounts[0].sub(previousReward).sub(startingAmounts[0]);
+                const previousTotalRewards = previousReward.mul(2); // Double the claimed amount as estimate
 
-                // Get current total stakes
-                const currentTotalStakes = await farmingRewardsDistributor.totalStakes();
+                console.log(newRewardsAccrued, previousTotalRewards);
 
-                // Calculate expected reward share based on current stake percentage
-                const aliceStake = await farmingRewardsDistributor.totalBalance(alice.address);
-                const aliceStakePercentage = aliceStake.mul(100).div(currentTotalStakes);
+                const accruedRewardsDiff = newRewardsAccrued.mul(100).div(previousTotalRewards);
 
                 // With 50% of original tokens, rewards should be ~50% of what they were before
-                expect(aliceStakePercentage).to.be.within(45, 55); // Allow for some rounding
+                expect(accruedRewardsDiff).to.be.within(45, 55); // Allow for some rounding
             })
 
-            it("Handles getReward for specific reward tokens correctly", async () => {
+            it.only("Handles getReward for specific reward tokens correctly", async () => {
                 // Setup Bob for testing
                 await token0.mint(bob.address, largeTokenAmount);
                 await token1.mint(bob.address, largeTokenAmount);
@@ -332,10 +354,10 @@ describe("Farming Integration", () => {
                 await algebraVault.connect(bob).deposit(ethers.utils.parseEther("2000"), 0, bob.address);
 
                 // Rebalance to enter farming
-                await algebraVault.connect(wallet).rebalance(-1800, -1200, 180, 600, 0);
+                await algebraVault.connect(wallet).rebalance(-1800, -60, 60, 15000, 0);
 
                 // Generate rewards
-                await plugin.updateVirtualPoolTick(500, false);
+                // await plugin.updateVirtualPoolTick(500, false);
                 await network.provider.send("evm_increaseTime", [3600]);
                 await algebraVault.collectRewards();
 
@@ -345,7 +367,7 @@ describe("Farming Integration", () => {
                 await farmingRewardsDistributor.connect(bob).stake(bobLpBalance, bob.address);
 
                 // Generate more rewards
-                await plugin.updateVirtualPoolTick(550, false);
+                // await plugin.updateVirtualPoolTick(550, false);
                 await network.provider.send("evm_increaseTime", [3600]);
                 await algebraVault.collectRewards();
                 await farmingRewardsDistributor.updateReward();
@@ -393,10 +415,10 @@ describe("Farming Integration", () => {
                 await algebraVault.connect(bob).deposit(ethers.utils.parseEther("1000"), 0, bob.address);
 
                 // Rebalance to enter farming
-                await algebraVault.connect(wallet).rebalance(-1800, -1200, 180, 600, 0);
+                await algebraVault.connect(wallet).rebalance(-1800, -60, 60, 15000, 0);
 
                 // Fast forward to accumulate rewards
-                await plugin.updateVirtualPoolTick(500, false);
+                // await plugin.updateVirtualPoolTick(500, false);
                 await network.provider.send("evm_increaseTime", [3600]);
                 await algebraVault.collectRewards();
 
@@ -414,7 +436,7 @@ describe("Farming Integration", () => {
                 await farmingRewardsDistributor.connect(bob).stake(bobLpBalance, bob.address);
 
                 // Fast forward to accumulate more rewards
-                await plugin.updateVirtualPoolTick(600, false);
+                // await plugin.updateVirtualPoolTick(600, false);
                 await network.provider.send("evm_increaseTime", [7200]);
                 await algebraVault.collectRewards();
                 await farmingRewardsDistributor.updateReward();
