@@ -9,7 +9,7 @@ import '@cryptoalgebra/farming-proxy-plugin/contracts/interfaces/IAlgebraVirtual
 import './TestERC20.sol';
 
 contract MockPlugin is VolatilityOraclePlugin {
-    uint8 public constant defaultPluginConfig = uint8(Plugins.AFTER_INIT_FLAG | Plugins.BEFORE_SWAP_FLAG);
+    uint8 public constant defaultPluginConfig = uint8(Plugins.AFTER_INIT_FLAG | Plugins.BEFORE_SWAP_FLAG | Plugins.AFTER_SWAP_FLAG);
 
     address public incentive;
 
@@ -134,6 +134,13 @@ contract MockPlugin is VolatilityOraclePlugin {
         bytes calldata data
     ) external override returns (bytes4) {
         emit AfterSwap(sender, recipient, zeroToOne, amountRequired, limitSqrtPrice, amount0, amount1, data);
+
+        address _incentive = incentive;
+
+        if (_incentive != address(0)) {
+            (, int24 tick, , ) = _getPoolState();
+            IAlgebraVirtualPool(_incentive).crossTo(tick, zeroToOne);
+        }
         return IAlgebraPlugin.afterSwap.selector;
     }
 
@@ -174,12 +181,5 @@ contract MockPlugin is VolatilityOraclePlugin {
 
     function getPool() external view returns (address) {
         return pool;
-    }
-
-    function updateVirtualPoolTick(int24 tick, bool zeroToOne) external {
-        address _incentive = incentive;
-        if (_incentive != address(0)) {
-            IAlgebraVirtualPool(_incentive).crossTo(tick, zeroToOne);
-        }
     }
 }
