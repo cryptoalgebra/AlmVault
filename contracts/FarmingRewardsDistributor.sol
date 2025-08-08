@@ -11,8 +11,6 @@ import { IAlgebraVault } from "./interfaces/IAlgebraVault.sol";
 import { IAlgebraVaultFactory } from "./interfaces/IAlgebraVaultFactory.sol";
 import { IFarmingRewardsDistributor } from "./interfaces/IFarmingRewardsDistributor.sol";
 
-import {console} from "hardhat/console.sol";
-
 /// @title Farming Rewards Distributor
 contract FarmingRewardsDistributor is IFarmingRewardsDistributor, Pausable {
     using SafeERC20 for IERC20;
