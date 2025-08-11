@@ -126,7 +126,7 @@ contract FarmingRewardsDistributor is IFarmingRewardsDistributor, Pausable {
      * @notice Address and claimable amount of all reward tokens for the given account.
      * @param account for rewards
      * @return rewardsData array of rewards
-     * @dev this estimation doesn't include rewards that are yet to be collected from the ICHIVault via collectRewards
+     * @dev this estimation doesn't include rewards that are yet to be collected from the AlgebraVault via collectRewards
      */
     function claimableRewards(
         address account
@@ -303,14 +303,14 @@ contract FarmingRewardsDistributor is IFarmingRewardsDistributor, Pausable {
     /********************** Eligibility + Disqualification ***********************/
 
     /**
-     * @notice Pause MFD functionalities
+     * @notice Pause FRD functionalities
      */
     function pause() public override onlyManager {
         _pause();
     }
 
     /**
-     * @notice Resume MFD functionalities
+     * @notice Resume FRD functionalities
      */
     function unpause() public override onlyManager {
         _unpause();
