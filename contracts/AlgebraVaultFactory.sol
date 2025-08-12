@@ -130,12 +130,12 @@ contract AlgebraVaultFactory is IAlgebraVaultFactory, ReentrancyGuard, AccessCon
         getAlgebraVault[genKey(msg.sender, token1, token0, allowToken1, allowToken0)] = algebraVault;
         allVaults.push(algebraVault);
 
+        emit AlgebraVaultCreated(msg.sender, algebraVault, token0, allowToken0, token1, allowToken1, allVaults.length);
+
         address farmingRewardsDistributor = FarmingRewardsDistributorDeployer.createFarmingRewardsDistributor(
             algebraVault
         );
         IAlgebraVault(algebraVault).setFarmingRewardsDistributor(farmingRewardsDistributor);
-
-        emit AlgebraVaultCreated(msg.sender, algebraVault, token0, allowToken0, token1, allowToken1, allVaults.length);
     }
 
     /**
