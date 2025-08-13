@@ -3,9 +3,10 @@ import { UV3Math, AlgebraVaultFactory } from "../types";
 const hre = require("hardhat");
 
 async function main() {
-    const algebraFactory = "0x904Af47469B13b341B41c552c952370b76B69DFA"
-    const pluginDeployer = "0x0000000000000000000000000000000000000000" // zero address for base pools
-    const nftManager = "0xDE4E488b8F835E8c7Bc9d2d307fff804625aCA76"
+    const algebraFactory = "0xcD58521ecaC7724d1752F941C56490c27bAe9ab0"
+    const pluginDeployer = "0xFD209C7e6b19131B2C36550950c66F0E4EbccfF0" // zero address for base pools
+    const nftManager = "0x5baD56bfBABEC1A5A7848399762f54566FA22557"
+    const eternalFarming = "0x1C5E8C41B5B119dc8fc5ac8e53692E323a6D78D7"
     const wrapNative = "0x4200000000000000000000000000000000000006"
 
     const uV3MathFactory = await hre.ethers.getContractFactory("UV3Math");
@@ -18,13 +19,18 @@ async function main() {
     });
     const libAlgebraVaultDeployer = await algebraVaultDeployer.deploy();
 
+    const farmingRewardsDistributorDeployer = await hre.ethers.getContractFactory("FarmingRewardsDistributorDeployer");
+    const libFarmingRewardsDistributorDeployer = await farmingRewardsDistributorDeployer.deploy();
+
     const AlgebraVaultFactoryFactory = await hre.ethers.getContractFactory("AlgebraVaultFactory", {
             libraries: {
                 AlgebraVaultDeployer: libAlgebraVaultDeployer.address,
+                FarmingRewardsDistributorDeployer: libFarmingRewardsDistributorDeployer.address
             }
         }
     );
-    const AlgebraVaultFactory = await AlgebraVaultFactoryFactory.deploy(algebraFactory, pluginDeployer, nftManager, "ALGEBRA") as AlgebraVaultFactory;
+
+    const AlgebraVaultFactory = await AlgebraVaultFactoryFactory.deploy(algebraFactory, pluginDeployer, eternalFarming, nftManager, "ALGEBRA") as AlgebraVaultFactory;
 
     await AlgebraVaultFactory.deployed()
 
@@ -49,7 +55,8 @@ async function main() {
         address: AlgebraVaultFactory.address,
         constructorArguments: [
             algebraFactory, 
-            pluginDeployer, 
+            pluginDeployer,
+            eternalFarming, 
             nftManager, 
             "ALGEBRA"
         ],
