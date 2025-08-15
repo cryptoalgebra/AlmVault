@@ -28,7 +28,7 @@ const config: HardhatUserConfig = {
       allowUnlimitedContractSize: true,
     },
     baseTestnet: {
-      url: `https://sepolia.base.org`,
+      url: `https://base-sepolia.gateway.tenderly.co`,
       chainId: 84532,
       accounts: [`0x${MNEMONIC || '1000000000000000000000000000000000000000000000000000000000000000'}`],
     },

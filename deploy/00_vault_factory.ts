@@ -6,11 +6,13 @@ async function main() {
     const algebraFactory = "0xcD58521ecaC7724d1752F941C56490c27bAe9ab0"
     const pluginDeployer = "0xFD209C7e6b19131B2C36550950c66F0E4EbccfF0" // zero address for base pools
     const nftManager = "0x5baD56bfBABEC1A5A7848399762f54566FA22557"
-    const eternalFarming = "0x1C5E8C41B5B119dc8fc5ac8e53692E323a6D78D7"
+    const eternalFarming = "0xf7cA7d0F8Bbef9BBfEB66Cf2c9C84Eeb2dA60b22"
     const wrapNative = "0x4200000000000000000000000000000000000006"
 
     const uV3MathFactory = await hre.ethers.getContractFactory("UV3Math");
     const uV3Math = (await uV3MathFactory.deploy()) as UV3Math;
+
+    await uV3Math.deployed()
 
     const algebraVaultDeployer = await hre.ethers.getContractFactory("AlgebraVaultDeployer", {
         libraries: {
@@ -18,9 +20,12 @@ async function main() {
         },
     });
     const libAlgebraVaultDeployer = await algebraVaultDeployer.deploy();
+    await libAlgebraVaultDeployer.deployed()
 
     const farmingRewardsDistributorDeployer = await hre.ethers.getContractFactory("FarmingRewardsDistributorDeployer");
     const libFarmingRewardsDistributorDeployer = await farmingRewardsDistributorDeployer.deploy();
+
+    await libFarmingRewardsDistributorDeployer.deployed()
 
     const AlgebraVaultFactoryFactory = await hre.ethers.getContractFactory("AlgebraVaultFactory", {
             libraries: {
