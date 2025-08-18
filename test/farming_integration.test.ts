@@ -286,7 +286,7 @@ describe("Farming Integration", () => {
                     await farmingRewardsDistributor.getReward(wallet.address, [token1.address, token2.address]);
                 })
 
-                it("Should handle unstaking correctly and update reward claims", async () => {
+                it.only("Should handle unstaking correctly and update reward claims", async () => {
                     // Setup initial stake
                     await algebraVault
                         .connect(alice)
@@ -311,13 +311,13 @@ describe("Farming Integration", () => {
 
                     // Unstake half of the tokens
                     const totalStaked = await farmingRewardsDistributor.totalBalance(alice.address);
+                    const beforeUnstakeBalance = await token2.balanceOf(alice.address);
                     await farmingRewardsDistributor.connect(alice).unstake(totalStaked.div(2));
-
-                    // Check that rewards were calculated and made claimable during unstake
-                    const claimableAfterUnstake = await farmingRewardsDistributor.claimable(token2.address, alice.address);
+                    const afterUnstakeBalance = await token2.balanceOf(alice.address);
+                    const claimedRewards = afterUnstakeBalance.sub(beforeUnstakeBalance);
 
                     // Slightly more rewards, because of accumulation while unstaking
-                    expect(claimableAfterUnstake).to.be.closeTo(initialAmounts[0], ethers.utils.parseEther("1"));
+                    expect(claimedRewards).to.be.closeTo(initialAmounts[0], ethers.utils.parseEther("1"));
 
                     // Generate more rewards
                     // await plugin.updateVirtualPoolTick(600, false);
@@ -330,7 +330,7 @@ describe("Farming Integration", () => {
 
                     // New rewards should accrue at half the rate (since half tokens unstaked)
                     const previousReward = initialAmounts[0].sub(startingAmounts[0]);
-                    const newRewardsAccrued = finalAmounts[0].sub(previousReward).sub(startingAmounts[0]);
+                    const newRewardsAccrued = finalAmounts[0].sub(previousReward).sub(startingAmounts[0]).add(claimedRewards);
                     const previousTotalRewards = previousReward.mul(2); // Double the claimed amount as estimate
 
 

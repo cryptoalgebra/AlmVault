@@ -187,6 +187,7 @@ contract FarmingRewardsDistributor is IFarmingRewardsDistributor, Pausable {
 
     function unstake(uint256 amount) external override {
         _unstake(amount, msg.sender);
+        _getReward(msg.sender, rewardTokens);
     }
 
     function _unstake(uint256 amount, address onBehalfOf) internal {
