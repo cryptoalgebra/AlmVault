@@ -483,7 +483,10 @@ describe("Farming Integration", () => {
                     await farmingRewardsDistributor.connect(alice).stake(lpBalance.div(2), alice.address);
 
                     lpBalance = await algebraVault.balanceOf(alice.address);
+                    
                     await farmingRewardsDistributor.connect(alice).stake(lpBalance, alice.address);
+
+                    await network.provider.send("evm_increaseTime", [7200]);
 
                     const rewardData = await farmingRewardsDistributor.rewardData(token2.address)
                     const rewardDataBonus = await farmingRewardsDistributor.rewardData(token2.address)
@@ -500,7 +503,183 @@ describe("Farming Integration", () => {
                     expect(claimableAmounts[0]).to.be.closeTo(rewardBalance, 2)
                     expect(claimableAmounts[1]).to.be.closeTo(bonusRewardBalance, 2)
                 })
+
+                it("Transfers rewards to distributor contract on alm deposit", async () => {
+                    await algebraVault.connect(alice).deposit(ethers.utils.parseEther("4000"), 0, alice.address);
+                    await algebraVault.connect(alice).approve(farmingRewardsDistributor.address, giantTokenAmount);
+
+                    let lpBalance = await algebraVault.balanceOf(alice.address);
+                    await farmingRewardsDistributor.connect(alice).stake(lpBalance, alice.address);
+
+                    const rewardsBeforeData = await token2.balanceOf(farmingRewardsDistributor.address)
+
+                    await network.provider.send("evm_increaseTime", [7200]);
+                    await algebraVault.connect(alice).deposit(ethers.utils.parseEther("4000"), 0, alice.address)
+
+                    const rewardsAfterData = await token2.balanceOf(farmingRewardsDistributor.address)
+
+                    expect(rewardsAfterData).to.be.greaterThan(rewardsBeforeData)
+                })
+
+                it("Transfers rewards to distributor contract on rebalance", async () => {
+                    await algebraVault.connect(alice).deposit(ethers.utils.parseEther("4000"), 0, alice.address);
+                    await algebraVault.connect(alice).approve(farmingRewardsDistributor.address, giantTokenAmount);
+
+                    let lpBalance = await algebraVault.balanceOf(alice.address);
+                    await farmingRewardsDistributor.connect(alice).stake(lpBalance, alice.address);
+
+                    const rewardsBeforeData = await token2.balanceOf(farmingRewardsDistributor.address)
+
+                    await network.provider.send("evm_increaseTime", [7200]);
+                    await algebraVault.connect(wallet).rebalance(-1800, -60, 60, 15000, 0);
+
+                    const rewardsAfterData = await token2.balanceOf(farmingRewardsDistributor.address)
+
+                    expect(rewardsAfterData).to.be.greaterThan(rewardsBeforeData)
+                })
+
+                it("Transfers rewards to distributor contract on withdraw", async () => {
+                    await algebraVault.connect(alice).deposit(ethers.utils.parseEther("4000"), 0, alice.address);
+                    await algebraVault.connect(alice).approve(farmingRewardsDistributor.address, giantTokenAmount);
+
+                    let lpBalance = await algebraVault.balanceOf(alice.address);
+
+                    await farmingRewardsDistributor.connect(alice).stake(lpBalance.sub(1000), alice.address);
+
+                    const rewardsBeforeData = await token2.balanceOf(farmingRewardsDistributor.address)
+
+                    await network.provider.send("evm_increaseTime", [7200]);
+                    await algebraVault.connect(alice).withdraw(1000, alice.address);
+
+                    const rewardsAfterData = await token2.balanceOf(farmingRewardsDistributor.address)
+
+                    expect(rewardsAfterData).to.be.greaterThan(rewardsBeforeData)
+                })
+
             })
+
         })
+
+        describe("Farming detach", () => {
+            let farmingRewardsDistributor: IFarmingRewardsDistributor;
+
+                beforeEach("Earn initial rewards", async () => {
+                    farmingRewardsDistributor = (await ethers.getContractAt("FarmingRewardsDistributor", await algebraVault.farmingRewardsDistributor())) as IFarmingRewardsDistributor;
+
+                    await token0.approve(algebraVault.address, veryLargeTokenAmount);
+                    await token1.approve(algebraVault.address, veryLargeTokenAmount);
+
+                    await algebraVault.deposit(ethers.utils.parseEther("1"), 0, wallet.address);
+                    await algebraVault.approve(farmingRewardsDistributor.address, giantTokenAmount);
+
+                    await algebraVault.connect(wallet).rebalance(-1800, -60, 60, 15000, 0);
+                    await router.connect(carol).exactInputSingle({
+                        tokenIn: token1.address,
+                        tokenOut: token0.address,
+                        deployer: NULL_ADDRESS,
+                        recipient: carol.address,
+                        deadline: 9999999999999,
+                        amountIn: veryLargeTokenAmount,
+                        amountOutMinimum: 0,
+                        limitSqrtPrice: 0
+                    })
+
+                    await network.provider.send("evm_increaseTime", [3600]);
+
+                    await farmingRewardsDistributor.stake(await algebraVault.balanceOf(wallet.address), wallet.address);
+
+                    // Reset rewards for the subsequent tests
+                    await farmingRewardsDistributor.updateReward();
+
+                    await farmingRewardsDistributor.unstake(await farmingRewardsDistributor.totalBalance(wallet.address));
+                    await farmingRewardsDistributor.getReward(wallet.address, [token1.address, token2.address]);
+                })
+
+
+                it("pos has rewards after detach", async () => {
+                    await algebraVault.connect(alice).deposit(ethers.utils.parseEther("4000"), 0, alice.address);
+                    await algebraVault.connect(alice).approve(farmingRewardsDistributor.address, giantTokenAmount);
+
+                    let lpBalance = await algebraVault.balanceOf(alice.address);
+                    await farmingRewardsDistributor.connect(alice).stake(lpBalance.div(2), alice.address);
+                    
+                    const rewardsBeforeData = await token2.balanceOf(farmingRewardsDistributor.address)
+
+                    await network.provider.send("evm_increaseTime", [7200]);
+                    await algebraEternalFarming.deactivateIncentive(
+                    {
+                            pool: algebraPool.address,
+                            rewardToken: token2.address,
+                            bonusRewardToken: token1.address,
+                            nonce: 0,
+                    })
+                    
+                    await token1.approve(algebraEternalFarming.address, bonusReward);
+                    await token2.approve(algebraEternalFarming.address, totalReward);
+
+                    await algebraEternalFarming.createEternalFarming(
+                        {
+                            pool: algebraPool.address,
+                            rewardToken: token2.address,
+                            bonusRewardToken: token1.address,
+                            nonce: 1,
+                        },
+                        {
+                            reward: totalReward,
+                            bonusReward: bonusReward,
+                            rewardRate: ethers.utils.parseEther("1"),
+                            bonusRewardRate: ethers.utils.parseEther("0.03"),
+                            minimalPositionWidth: 1,
+                        },
+                        await algebraPool.plugin()
+                    )
+
+                    await algebraVault.connect(alice).deposit(ethers.utils.parseEther("4000"), 0, alice.address)
+                })
+
+                it("ALM participates in new farming after detach", async () => {
+                    await algebraVault.connect(alice).deposit(ethers.utils.parseEther("4000"), 0, alice.address);
+                    await algebraVault.connect(alice).approve(farmingRewardsDistributor.address, giantTokenAmount);
+
+                    let lpBalance = await algebraVault.balanceOf(alice.address);
+                    await farmingRewardsDistributor.connect(alice).stake(lpBalance.div(2), alice.address);
+
+                    await network.provider.send("evm_increaseTime", [7200]);
+                    await algebraEternalFarming.deactivateIncentive(
+                    {
+                            pool: algebraPool.address,
+                            rewardToken: token2.address,
+                            bonusRewardToken: token1.address,
+                            nonce: 0,
+                    })
+                    
+                    await token1.approve(algebraEternalFarming.address, bonusReward);
+                    await token2.approve(algebraEternalFarming.address, totalReward);
+
+                    await algebraEternalFarming.createEternalFarming(
+                        {
+                            pool: algebraPool.address,
+                            rewardToken: token2.address,
+                            bonusRewardToken: token1.address,
+                            nonce: 1,
+                        },
+                        {
+                            reward: totalReward,
+                            bonusReward: bonusReward,
+                            rewardRate: ethers.utils.parseEther("1"),
+                            bonusRewardRate: ethers.utils.parseEther("0.03"),
+                            minimalPositionWidth: 1,
+                        },
+                        await algebraPool.plugin()
+                    )
+
+                    await algebraVault.connect(wallet).rebalance(-1800, -60, 60, 15000, 0);
+                    const incentiveId = await farmingCenter.deposits(3); // last pos id
+
+                    let res = await farmingCenter.incentiveKeys(incentiveId);
+                    expect(res.nonce).to.be.eq(1) // alm pos in new farming
+                })
+            
+            })
     })
 });
