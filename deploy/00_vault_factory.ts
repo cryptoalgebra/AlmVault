@@ -3,11 +3,15 @@ import { UV3Math, AlgebraVaultFactory } from "../types";
 const hre = require("hardhat");
 
 async function main() {
-    const algebraFactory = "0xcD58521ecaC7724d1752F941C56490c27bAe9ab0"
-    const pluginDeployer = "0xFD209C7e6b19131B2C36550950c66F0E4EbccfF0" // zero address for base pools
-    const nftManager = "0x5baD56bfBABEC1A5A7848399762f54566FA22557"
-    const eternalFarming = "0xf7cA7d0F8Bbef9BBfEB66Cf2c9C84Eeb2dA60b22"
+    const algebraFactory = "0x2fB84Ae4b1B6aeEc5627268070cF44C678Cd9728"
+    const pluginDeployer = "0x0000000000000000000000000000000000000000" // zero address for base pools
+    const nftManager = "0x9026d1c84f5834968FE80368b216D7C34109Cf97"
+    const eternalFarming = "0xc709aCDA0dBF1a70189bd850e8E8b2659017Fa62"
     const wrapNative = "0x4200000000000000000000000000000000000006"
+
+    const feeRecipient = "0xDeaD1F5aF792afc125812E875A891b038f888258" // algebra fee address
+    const ammFee = "100000000000000000" // 10%(100% is 10**18), partner's fees
+    const baseFee = "100000000000000000" // 10% 
 
     const uV3MathFactory = await hre.ethers.getContractFactory("UV3Math");
     const uV3Math = (await uV3MathFactory.deploy()) as UV3Math;
@@ -40,6 +44,17 @@ async function main() {
     await AlgebraVaultFactory.deployed()
 
     console.log("AlgebraVaultFactory to:", AlgebraVaultFactory.address);
+
+    // Set fee configuration
+    console.log("Setting fee recipient to:", feeRecipient);
+    let tx = await AlgebraVaultFactory.setFeeRecipient(feeRecipient);
+    await tx.wait();
+
+    console.log("Setting AMM fees...");
+    tx = await AlgebraVaultFactory.setAmmFee(ammFee);
+    await tx.wait();
+    tx = await AlgebraVaultFactory.setBaseFee(baseFee);
+    await tx.wait();
 
     const AlgebraVaultDepositGuardFactory = await hre.ethers.getContractFactory("AlgebraVaultDepositGuard");
     const AlgebraVaultDepositGuard = await AlgebraVaultDepositGuardFactory.deploy(AlgebraVaultFactory.address, wrapNative) as AlgebraVaultFactory;
