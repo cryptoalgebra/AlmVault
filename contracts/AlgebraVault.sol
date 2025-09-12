@@ -36,35 +36,35 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
     using SafeERC20 for IERC20;
     using SafeMath for uint256;
 
+    uint256 public constant PRECISION = 10 ** 18;
+    uint256 constant PERCENT = 100;
+    address constant NULL_ADDRESS = address(0);
+    uint256 constant MIN_SHARES = 1000;
+
     address public immutable override algebraVaultFactory;
     address public immutable override pool;
     address public immutable override token0;
     address public immutable override token1;
+    address private immutable pluginDeployer;
+
     bool public immutable override allowToken0;
     bool public immutable override allowToken1;
+
+    uint256 public override deposit0Max;
+    uint256 public override deposit1Max;
+    uint256 public override hysteresis;
+
+    // Position tracking
+    uint128 public override basePositionId;
+    uint128 public override limitPositionId;
 
     address public override ammFeeRecipient;
     address public override affiliate;
     address public override rebalanceManager;
     address public override farmingRewardsDistributor;
 
-    // Position tracking
-    uint256 public override basePositionId;
-    uint256 public override limitPositionId;
-
-    uint256 public override deposit0Max;
-    uint256 public override deposit1Max;
-    uint256 public override hysteresis;
-
-    uint256 public constant PRECISION = 10 ** 18;
-    uint256 constant PERCENT = 100;
-    address constant NULL_ADDRESS = address(0);
-    uint256 constant MIN_SHARES = 1000;
-
     uint32 public override twapPeriod;
     uint32 public override auxTwapPeriod;
-
-    address private immutable pluginDeployer;
 
     function _checkManager() private view {
         if (!IAccessControl(algebraVaultFactory).hasRole(
@@ -370,7 +370,7 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         int24 tickUpper,
         uint256 amount0Desired,
         uint256 amount1Desired
-    ) internal returns (uint256 positionId) {
+    ) internal returns (uint128) {
         // Don't try to mint if we don't have any tokens
         if (amount0Desired == 0 && amount1Desired == 0) {
             return 0;
@@ -398,7 +398,7 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
             }
         }
 
-        (positionId,,,) = _nftManager().mint(
+        (uint256 positionId,,,) = _nftManager().mint(
             INonfungiblePositionManager.MintParams({
                 token0: token0,
                 token1: token1,
@@ -415,7 +415,9 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         );
 
         // Approve and enter farming center
-        _approveAndEnterFarming(positionId);
+        //_approveAndEnterFarming(positionId);
+
+        return uint128(positionId);
     }
 
     /// @notice mints base position
