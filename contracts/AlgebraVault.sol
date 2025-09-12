@@ -50,6 +50,11 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
     bool public immutable override allowToken0;
     bool public immutable override allowToken1;
 
+    // Set tickSpacing as immutable (though it can be changed in a pool)
+    // If it suddenly changes, rebalances might not work
+    // Since this is very unlikely, will redeploy the vault in that case
+    int24 public immutable override tickSpacing;
+
     uint256 public override deposit0Max;
     uint256 public override deposit1Max;
     uint256 public override hysteresis;
@@ -109,6 +114,7 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         pluginDeployer = IAlgebraVaultFactory(algebraVaultFactory).pluginDeployer();
         token0 = IAlgebraPool(_pool).token0();
         token1 = IAlgebraPool(_pool).token1();
+        tickSpacing = IAlgebraPool(_pool).tickSpacing();
         allowToken0 = _allowToken0;
         allowToken1 = _allowToken1;
         twapPeriod = _twapPeriod;
@@ -712,10 +718,10 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         int256 swapQuantity
     ) external override nonReentrant onlyRebalancerOrRebalanceManager {
         int24 tickSpacing_ = IAlgebraPool(pool).tickSpacing();
-        if (!(_baseLower < _baseUpper && _baseLower % tickSpacing_ == 0 && _baseUpper % tickSpacing_ == 0)) {
+        if (!(_baseLower < _baseUpper && _baseLower % tickSpacing == 0 && _baseUpper % tickSpacing == 0)) {
             revert InvalidPosition();
         }
-        if (!(_limitLower < _limitUpper && _limitLower % tickSpacing_ == 0 && _limitUpper % tickSpacing_ == 0)) {
+        if (!(_limitLower < _limitUpper && _limitLower % tickSpacing == 0 && _limitUpper % tickSpacing == 0)) {
             revert InvalidPosition();
         }
         if (!(_baseLower != _limitLower || _baseUpper != _limitUpper)) revert IdenticalPositions();
@@ -921,14 +927,6 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         deposit0Max = _deposit0Max;
         deposit1Max = _deposit1Max;
         emit DepositMax(msg.sender, _deposit0Max, _deposit1Max);
-    }
-
-    /**
-     @notice Returns the current tickSpacing in the pool
-     @return tickSpacing current tickSpacing in the pool
-     */
-    function tickSpacing() external view override returns (int24) {
-        return IAlgebraPool(pool).tickSpacing();
     }
 
     /**
