@@ -426,7 +426,7 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         );
 
         // Approve and enter farming center
-        //_approveAndEnterFarming(positionId);
+        _approveAndEnterFarming(positionId);
 
         return uint128(positionId);
     }
