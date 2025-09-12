@@ -266,7 +266,6 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
     /// @notice collects fees and tokens from the positions and burns the NFTs
     /// @param positionId NFT position ID
     function _dismantlePosition(uint256 positionId) internal returns (uint256 fee0, uint256 fee1) {
-
         if (positionId != 0) {
             uint128 positionLiquidity = _getPositionLiquidity(positionId);
 
@@ -377,6 +376,7 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
     @return positionId ID of the minted NFT position
     */
     function _mintPosition(
+        int24 currentTick,
         int24 tickLower,
         int24 tickUpper,
         uint256 amount0Desired,
@@ -386,9 +386,6 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         if (amount0Desired == 0 && amount1Desired == 0) {
             return 0;
         }
-
-        // Get current tick to determine if position can be minted
-        int24 currentTick = currentTick();
 
         // If current tick is within or on the boundaries of our range, we need both tokens
         if (currentTick >= tickLower && currentTick < tickUpper) {
@@ -437,12 +434,13 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
     /// @param amount0Desired desired amount of token0
     /// @param amount1Desired desired amount of token1
     function _mintBasePosition(
+        int24 _currentTick,
         int24 _baseLower,
         int24 _baseUpper,
         uint256 amount0Desired,
         uint256 amount1Desired
     ) internal returns (uint128 _basePositionId) {
-        _basePositionId = _mintPosition(_baseLower, _baseUpper, amount0Desired, amount1Desired);
+        _basePositionId = _mintPosition(_currentTick,_baseLower, _baseUpper, amount0Desired, amount1Desired);
     }
 
     /// @notice mints limit position
@@ -451,12 +449,13 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
     /// @param amount0Desired desired amount of token0
     /// @param amount1Desired desired amount of token1
     function _mintLimitPosition(
+        int24 _currentTick,
         int24 _limitLower,
         int24 _limitUpper,
         uint256 amount0Desired,
         uint256 amount1Desired
     ) internal returns (uint128 _limitPositionId) {
-        _limitPositionId = _mintPosition(_limitLower, _limitUpper, amount0Desired, amount1Desired);
+        _limitPositionId = _mintPosition(_currentTick, _limitLower, _limitUpper, amount0Desired, amount1Desired);
     }
 
     /** @notice Helper function to get the most conservative price
@@ -721,12 +720,8 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         }
         if (!(_baseLower != _limitLower || _baseUpper != _limitUpper)) revert IdenticalPositions();
 
-        // Clean positions and collect/distribute fees
-        //(uint256 fees0, uint256 fees1) = _cleanPositions(false);
-
         // dismantle positions, collect all tokens
         (uint128 _basePositionId, uint128 _limitPositionId) = (basePositionId, limitPositionId);
-
         (uint256 fees0, uint256 fees1) = _dismantlePosition(_basePositionId);
         (uint256 _fees0, uint256 _fees1) = _dismantlePosition(_limitPositionId);
         fees0 = fees0 + _fees0;
@@ -758,10 +753,12 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
             totalSupply()
         );
 
-        _basePositionId = _mintBasePosition(_baseLower, _baseUpper,
+        int24 currentTick = currentTick();
+
+        _basePositionId = _mintBasePosition(currentTick, _baseLower, _baseUpper,
             balance0, balance1);
         // balances had changed, so we need to recalculate them for the limit position
-        _limitPositionId = _mintLimitPosition(_limitLower, _limitUpper,
+        _limitPositionId = _mintLimitPosition(currentTick, _limitLower, _limitUpper,
             IERC20(token0).balanceOf(address(this)),
             IERC20(token1).balanceOf(address(this))
         );
@@ -1046,10 +1043,10 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
      @notice Returns current price tick
      @return tick Uniswap pool's current price tick
      */
-    function currentTick() public view override returns (int24 tick) {
+    function currentTick() public view override returns (int24) {
         (, int24 tick_, , , , bool unlocked_) = IAlgebraPool(pool).globalState();
         if (!unlocked_) revert InvalidDeposit();
-        tick = tick_;
+        return tick_;
     }
 
     /**
