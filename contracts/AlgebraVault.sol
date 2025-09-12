@@ -264,11 +264,16 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
 
     /// @notice collects fees and tokens from the positions and burns the NFTs
     /// @param positionId NFT position ID
-    function _dismantlePosition(uint256 positionId) internal {
+    function _dismantlePosition(uint256 positionId) internal returns (uint256 fee0, uint256 fee1) {
+
         if (positionId != 0) {
             uint128 positionLiquidity = _getPositionLiquidity(positionId);
+
+            uint256 burntAmount0;
+            uint256 burntAmount1;
+
             if (positionLiquidity > 0) {
-                _nftManager().decreaseLiquidity(
+                (burntAmount0, burntAmount1) = _nftManager().decreaseLiquidity(
                     INonfungiblePositionManager.DecreaseLiquidityParams({
                         tokenId: positionId,
                         liquidity: positionLiquidity,
@@ -279,7 +284,7 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
                 );
             }
 
-            _nftManager().collect(
+            (uint256 collectedAmount0, uint256 collectedAmount1) = _nftManager().collect(
                 INonfungiblePositionManager.CollectParams({
                     tokenId: positionId,
                     recipient: address(this),
@@ -288,6 +293,9 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
                 })
             );
             _nftManager().burn(positionId);
+
+            fee0 = collectedAmount0 - burntAmount0;
+            fee1 = collectedAmount1 - burntAmount1;
             // not setting positionId to 0, as it is done in the rebalance->mint functions
         }
     }
@@ -711,11 +719,16 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         if (!(_baseLower != _limitLower || _baseUpper != _limitUpper)) revert IdenticalPositions();
 
         // Clean positions and collect/distribute fees
-        (uint256 fees0, uint256 fees1) = _cleanPositions(false);
+        //(uint256 fees0, uint256 fees1) = _cleanPositions(false);
 
-        // dismantle positions, collect all tokens (fees already collected)
-        _dismantlePosition(basePositionId);
-        _dismantlePosition(limitPositionId);
+        // dismantle positions, collect all tokens
+        (uint256 fees0, uint256 fees1) = _dismantlePosition(basePositionId);
+        (uint256 _fees0, uint256 _fees1) = _dismantlePosition(limitPositionId);
+        fees0 = fees0 + _fees0;
+        fees1 = fees1 + _fees1;
+        _distributeFees(fees0, fees1);
+
+        console.logUint(start - gasleft());
 
         // swap tokens if required
         if (swapQuantity != 0) {
