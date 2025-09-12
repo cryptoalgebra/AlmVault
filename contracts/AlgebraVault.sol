@@ -240,8 +240,9 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
      @notice Collect rewards and sends them to the farming contract.
      */
     function collectRewards() external override nonReentrant {
-        if (basePositionId != 0) _collectAndClaimRewards(basePositionId);
-        if (limitPositionId != 0) _collectAndClaimRewards(limitPositionId);
+        (uint128 _basePositionId, uint128 _limitPositionId) = (basePositionId, limitPositionId);
+        if (_basePositionId != 0) _collectAndClaimRewards(_basePositionId);
+        if (_limitPositionId != 0) _collectAndClaimRewards(_limitPositionId);
     }
 
     function _getKeyForToken(uint256 tokenId) internal view returns (IncentiveKey memory) {
@@ -341,13 +342,15 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
     /// @return fees0 collected fees in token0
     /// @return fees1 collected fees in token1
     function _cleanPositions(bool withEvent) internal returns (uint256 fees0, uint256 fees1) {
+        (uint128 _basePositionId, uint128 _limitPositionId) = (basePositionId, limitPositionId);
+
         fees0 = 0;
         fees1 = 0;
-        if (basePositionId != 0) {
-            (fees0, fees1) = _collectRewardsAndAccrueFees(basePositionId, 0, 0);
+        if (_basePositionId != 0) {
+            (fees0, fees1) = _collectRewardsAndAccrueFees(_basePositionId, 0, 0);
         }
-        if (limitPositionId != 0) {
-            (fees0, fees1) = _collectRewardsAndAccrueFees(limitPositionId, fees0, fees1);
+        if (_limitPositionId != 0) {
+            (fees0, fees1) = _collectRewardsAndAccrueFees(_limitPositionId, fees0, fees1);
         }
         if (fees0 > 0 || fees1 > 0) {
             _distributeFees(fees0, fees1);
@@ -438,8 +441,8 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         int24 _baseUpper,
         uint256 amount0Desired,
         uint256 amount1Desired
-    ) internal {
-        basePositionId = _mintPosition(_baseLower, _baseUpper, amount0Desired, amount1Desired);
+    ) internal returns (uint128 _basePositionId) {
+        _basePositionId = _mintPosition(_baseLower, _baseUpper, amount0Desired, amount1Desired);
     }
 
     /// @notice mints limit position
@@ -452,8 +455,8 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         int24 _limitUpper,
         uint256 amount0Desired,
         uint256 amount1Desired
-    ) internal {
-        limitPositionId = _mintPosition(_limitLower, _limitUpper, amount0Desired, amount1Desired);
+    ) internal returns (uint128 _limitPositionId) {
+        _limitPositionId = _mintPosition(_limitLower, _limitUpper, amount0Desired, amount1Desired);
     }
 
     /** @notice Helper function to get the most conservative price
@@ -722,8 +725,10 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         //(uint256 fees0, uint256 fees1) = _cleanPositions(false);
 
         // dismantle positions, collect all tokens
-        (uint256 fees0, uint256 fees1) = _dismantlePosition(basePositionId);
-        (uint256 _fees0, uint256 _fees1) = _dismantlePosition(limitPositionId);
+        (uint128 _basePositionId, uint128 _limitPositionId) = (basePositionId, limitPositionId);
+
+        (uint256 fees0, uint256 fees1) = _dismantlePosition(_basePositionId);
+        (uint256 _fees0, uint256 _fees1) = _dismantlePosition(_limitPositionId);
         fees0 = fees0 + _fees0;
         fees1 = fees1 + _fees1;
         _distributeFees(fees0, fees1);
@@ -753,13 +758,15 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
             totalSupply()
         );
 
-        _mintBasePosition(_baseLower, _baseUpper,
+        _basePositionId = _mintBasePosition(_baseLower, _baseUpper,
             balance0, balance1);
         // balances had changed, so we need to recalculate them for the limit position
-        _mintLimitPosition(_limitLower, _limitUpper,
+        _limitPositionId = _mintLimitPosition(_limitLower, _limitUpper,
             IERC20(token0).balanceOf(address(this)),
             IERC20(token1).balanceOf(address(this))
         );
+
+        (basePositionId, limitPositionId) = (_basePositionId, _limitPositionId);
     }
 
     /**
