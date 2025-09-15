@@ -717,7 +717,6 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         int24 _limitUpper,
         int256 swapQuantity
     ) external override nonReentrant onlyRebalancerOrRebalanceManager {
-        int24 tickSpacing_ = IAlgebraPool(pool).tickSpacing();
         if (!(_baseLower < _baseUpper && _baseLower % tickSpacing == 0 && _baseUpper % tickSpacing == 0)) {
             revert InvalidPosition();
         }
