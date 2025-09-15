@@ -726,8 +726,13 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         }
         if (!(_baseLower != _limitLower || _baseUpper != _limitUpper)) revert IdenticalPositions();
 
-        // dismantle positions, collect all tokens
         (uint128 _basePositionId, uint128 _limitPositionId) = (basePositionId, limitPositionId);
+
+        // collect rewards from farming
+        _collectAndClaimRewards(_basePositionId);
+        _collectAndClaimRewards(_limitPositionId);
+
+        // dismantle positions, collect all tokens
         (uint256 fees0, uint256 fees1) = _dismantlePosition(_basePositionId);
         (uint256 _fees0, uint256 _fees1) = _dismantlePosition(_limitPositionId);
         fees0 = fees0 + _fees0;
