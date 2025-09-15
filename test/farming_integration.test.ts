@@ -286,7 +286,7 @@ describe("Farming Integration", () => {
                     await farmingRewardsDistributor.getReward(wallet.address, [token1.address, token2.address]);
                 })
 
-                it.only("Should handle unstaking correctly and update reward claims", async () => {
+                it("Should handle unstaking correctly and update reward claims", async () => {
                     // Setup initial stake
                     await algebraVault
                         .connect(alice)
