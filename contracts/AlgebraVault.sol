@@ -734,8 +734,6 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         fees1 = fees1 + _fees1;
         _distributeFees(fees0, fees1);
 
-        console.logUint(start - gasleft());
-
         // swap tokens if required
         if (swapQuantity != 0) {
             IAlgebraPool(pool).swap(
