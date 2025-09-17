@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity >=0.8.4;
 
-import { IAlgebraVaultFactory } from "./interfaces/IAlgebraVaultFactory.sol";
+import { IAlgebraVaultStableFactory } from "./interfaces/IAlgebraVaultStableFactory.sol";
 import { IAlgebraFactory } from "@cryptoalgebra/integral-core/contracts/interfaces/IAlgebraFactory.sol";
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import { AlgebraVaultDeployer } from "./lib/AlgebraVaultDeployer.sol";
+import { AlgebraVaultStableDeployer } from "./lib/AlgebraVaultStableDeployer.sol";
 import { IAlgebraPool } from "@cryptoalgebra/integral-core/contracts/interfaces/IAlgebraPool.sol";
 
-contract AlgebraVaultFactory is IAlgebraVaultFactory, ReentrancyGuard, AccessControl {
+contract AlgebraVaultStableFactory is IAlgebraVaultStableFactory, ReentrancyGuard, AccessControl {
     bytes32 public constant override MANAGER_ROLE = keccak256("MANAGER_ROLE");
     bytes32 public constant override REBALANCER_ROLE = keccak256("REBALANCER_ROLE");
 
@@ -61,32 +61,24 @@ contract AlgebraVaultFactory is IAlgebraVaultFactory, ReentrancyGuard, AccessCon
     }
 
     /**
-     @notice Creates an AlgebraVault for specified tokenA/tokenB/fee. May create an underlying Uniswap V3 pool.
-     Controls liquidity provision types (one-sided or two-sided).
+     @notice Creates an AlgebraVault for specified tokenA/tokenB for stablecoins.
+     Both tokens are allowed for deposits.
      @param tokenA TokenA of the Algebra V1 pool.
-     @param allowTokenA Indicates if tokenA is accepted during deposit.
      @param tokenB TokenB of the Algebra V1 pool.
-     @param allowTokenB Indicates if tokenB is accepted during deposit.
      @return algebraVault Address of the newly created AlgebraVault.
      */
     function createAlgebraVault(
         address tokenA,
-        bool allowTokenA,
-        address tokenB,
-        bool allowTokenB
+        address tokenB
     ) external override onlyRole(MANAGER_ROLE) nonReentrant returns (address algebraVault) {
         require(tokenA != tokenB, "AVF.createAlgebraVault: identical tokens");
 
         (address token0, address token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
-        (bool allowToken0, bool allowToken1) = tokenA < tokenB
-            ? (allowTokenA, allowTokenB)
-            : (allowTokenB, allowTokenA);
 
         require(token0 != NULL_ADDRESS, "AVF.createAlgebraVault: zero address");
-        require(allowTokenA || allowTokenB, "AVF.createAlgebraVault: no allowed tokens");
 
         require(
-            getAlgebraVault[genKey(msg.sender, token0, token1, allowToken0, allowToken1)] == NULL_ADDRESS,
+            getAlgebraVault[genKey(msg.sender, token0, token1)] == NULL_ADDRESS,
             "AVF.createAlgebraVault: vault exists"
         );
 
@@ -103,22 +95,18 @@ contract AlgebraVaultFactory is IAlgebraVaultFactory, ReentrancyGuard, AccessCon
 
         require(unlocked, "AVF.createAlgebraVault: pool is locked");
 
-        algebraVault = AlgebraVaultDeployer.createAlgebraVault(
+        algebraVault = AlgebraVaultStableDeployer.createAlgebraVault(
             pool,
-            token0,
-            allowToken0,
-            token1,
-            allowToken1,
             DEFAULT_TWAP_PERIOD,
             allVaults.length
         );
 
         // populate mapping in the reverse direction
-        getAlgebraVault[genKey(msg.sender, token0, token1, allowToken0, allowToken1)] = algebraVault;
-        getAlgebraVault[genKey(msg.sender, token1, token0, allowToken1, allowToken0)] = algebraVault;
+        getAlgebraVault[genKey(msg.sender, token0, token1)] = algebraVault;
+        getAlgebraVault[genKey(msg.sender, token1, token0)] = algebraVault;
         allVaults.push(algebraVault);
 
-        emit AlgebraVaultCreated(msg.sender, algebraVault, token0, allowToken0, token1, allowToken1, allVaults.length);
+        emit AlgebraVaultStableCreated(msg.sender, algebraVault, token0, token1, allVaults.length);
     }
 
     /**
@@ -167,17 +155,13 @@ contract AlgebraVaultFactory is IAlgebraVaultFactory, ReentrancyGuard, AccessCon
      * @param deployer vault creator
      * @param token0 the first of two tokens in the vault
      * @param token1 the second of two tokens in the vault
-     * @param allowToken0 allow deposits
-     * @param allowToken1 allow deposits
      * @return key generated key
      */
     function genKey(
         address deployer,
         address token0,
-        address token1,
-        bool allowToken0,
-        bool allowToken1
+        address token1
     ) public pure override returns (bytes32 key) {
-        key = keccak256(abi.encodePacked(deployer, token0, token1, allowToken0, allowToken1));
+        key = keccak256(abi.encodePacked(deployer, token0, token1));
     }
 }

@@ -6,7 +6,7 @@ import { SafeMath } from "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import { UV3Math } from "./../lib/UV3Math.sol";
 import { ITestOracle } from "./ITestOracle.sol";
 import { IAlgebraPool } from "@cryptoalgebra/integral-core/contracts/interfaces/IAlgebraPool.sol";
-import { IAlgebraVaultFactory } from "../interfaces/IAlgebraVaultFactory.sol";
+import { IAlgebraVaultStableFactory } from "../interfaces/IAlgebraVaultStableFactory.sol";
 
 /**
  @notice test UNI v3 oracle.
