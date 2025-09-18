@@ -36,35 +36,40 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
     using SafeERC20 for IERC20;
     using SafeMath for uint256;
 
-    address public immutable override algebraVaultFactory;
-    address public immutable override pool;
-    address public immutable override token0;
-    address public immutable override token1;
-    bool public immutable override allowToken0;
-    bool public immutable override allowToken1;
-
-    address public override ammFeeRecipient;
-    address public override affiliate;
-    address public override rebalanceManager;
-    address public override farmingRewardsDistributor;
-
-    // Position tracking
-    uint256 public override basePositionId;
-    uint256 public override limitPositionId;
-
-    uint256 public override deposit0Max;
-    uint256 public override deposit1Max;
-    uint256 public override hysteresis;
-
     uint256 public constant PRECISION = 10 ** 18;
     uint256 constant PERCENT = 100;
     address constant NULL_ADDRESS = address(0);
     uint256 constant MIN_SHARES = 1000;
 
+    address public immutable override algebraVaultFactory;
+    address public immutable override pool;
+    address public immutable override token0;
+    address public immutable override token1;
+    address private immutable pluginDeployer;
+
+    bool public immutable override allowToken0;
+    bool public immutable override allowToken1;
+
+    // Set tickSpacing as immutable (though it can be changed in a pool)
+    // If it suddenly changes, rebalances might not work
+    // Since this is very unlikely, will redeploy the vault in that case
+    int24 public immutable override tickSpacing;
+
+    uint256 public override deposit0Max;
+    uint256 public override deposit1Max;
+    uint256 public override hysteresis;
+
+    // Position tracking
+    uint32 public override basePositionId;
+    uint32 public override limitPositionId;
+
+    address public override rebalanceManager;
+    address public override ammFeeRecipient;
+    address public override affiliate;
+    address public override farmingRewardsDistributor;
+
     uint32 public override twapPeriod;
     uint32 public override auxTwapPeriod;
-
-    address private immutable pluginDeployer;
 
     function _checkManager() private view {
         if (!IAccessControl(algebraVaultFactory).hasRole(
@@ -109,6 +114,7 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         pluginDeployer = IAlgebraVaultFactory(algebraVaultFactory).pluginDeployer();
         token0 = IAlgebraPool(_pool).token0();
         token1 = IAlgebraPool(_pool).token1();
+        tickSpacing = IAlgebraPool(_pool).tickSpacing();
         allowToken0 = _allowToken0;
         allowToken1 = _allowToken1;
         twapPeriod = _twapPeriod;
@@ -240,8 +246,9 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
      @notice Collect rewards and sends them to the farming contract.
      */
     function collectRewards() external override nonReentrant {
-        if (basePositionId != 0) _collectAndClaimRewards(basePositionId);
-        if (limitPositionId != 0) _collectAndClaimRewards(limitPositionId);
+        (uint32 _basePositionId, uint32 _limitPositionId) = (basePositionId, limitPositionId);
+        if (_basePositionId != 0) _collectAndClaimRewards(_basePositionId);
+        if (_limitPositionId != 0) _collectAndClaimRewards(_limitPositionId);
     }
 
     function _getKeyForToken(uint256 tokenId) internal view returns (IncentiveKey memory) {
@@ -264,11 +271,15 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
 
     /// @notice collects fees and tokens from the positions and burns the NFTs
     /// @param positionId NFT position ID
-    function _dismantlePosition(uint256 positionId) internal {
+    function _dismantlePosition(uint256 positionId) internal returns (uint256 fee0, uint256 fee1) {
         if (positionId != 0) {
             uint128 positionLiquidity = _getPositionLiquidity(positionId);
+
+            uint256 burntAmount0;
+            uint256 burntAmount1;
+
             if (positionLiquidity > 0) {
-                _nftManager().decreaseLiquidity(
+                (burntAmount0, burntAmount1) = _nftManager().decreaseLiquidity(
                     INonfungiblePositionManager.DecreaseLiquidityParams({
                         tokenId: positionId,
                         liquidity: positionLiquidity,
@@ -279,7 +290,7 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
                 );
             }
 
-            _nftManager().collect(
+            (uint256 collectedAmount0, uint256 collectedAmount1) = _nftManager().collect(
                 INonfungiblePositionManager.CollectParams({
                     tokenId: positionId,
                     recipient: address(this),
@@ -288,6 +299,9 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
                 })
             );
             _nftManager().burn(positionId);
+
+            fee0 = collectedAmount0 - burntAmount0;
+            fee1 = collectedAmount1 - burntAmount1;
             // not setting positionId to 0, as it is done in the rebalance->mint functions
         }
     }
@@ -333,13 +347,15 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
     /// @return fees0 collected fees in token0
     /// @return fees1 collected fees in token1
     function _cleanPositions(bool withEvent) internal returns (uint256 fees0, uint256 fees1) {
+        (uint128 _basePositionId, uint128 _limitPositionId) = (basePositionId, limitPositionId);
+
         fees0 = 0;
         fees1 = 0;
-        if (basePositionId != 0) {
-            (fees0, fees1) = _collectRewardsAndAccrueFees(basePositionId, 0, 0);
+        if (_basePositionId != 0) {
+            (fees0, fees1) = _collectRewardsAndAccrueFees(_basePositionId, 0, 0);
         }
-        if (limitPositionId != 0) {
-            (fees0, fees1) = _collectRewardsAndAccrueFees(limitPositionId, fees0, fees1);
+        if (_limitPositionId != 0) {
+            (fees0, fees1) = _collectRewardsAndAccrueFees(_limitPositionId, fees0, fees1);
         }
         if (fees0 > 0 || fees1 > 0) {
             _distributeFees(fees0, fees1);
@@ -366,18 +382,16 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
     @return positionId ID of the minted NFT position
     */
     function _mintPosition(
+        int24 currentTick,
         int24 tickLower,
         int24 tickUpper,
         uint256 amount0Desired,
         uint256 amount1Desired
-    ) internal returns (uint256 positionId) {
+    ) internal returns (uint32) {
         // Don't try to mint if we don't have any tokens
         if (amount0Desired == 0 && amount1Desired == 0) {
             return 0;
         }
-
-        // Get current tick to determine if position can be minted
-        int24 currentTick = currentTick();
 
         // If current tick is within or on the boundaries of our range, we need both tokens
         if (currentTick >= tickLower && currentTick < tickUpper) {
@@ -398,7 +412,7 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
             }
         }
 
-        (positionId,,,) = _nftManager().mint(
+        (uint256 positionId,,,) = _nftManager().mint(
             INonfungiblePositionManager.MintParams({
                 token0: token0,
                 token1: token1,
@@ -416,6 +430,8 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
 
         // Approve and enter farming center
         _approveAndEnterFarming(positionId);
+
+        return uint32(positionId);
     }
 
     /// @notice mints base position
@@ -424,12 +440,13 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
     /// @param amount0Desired desired amount of token0
     /// @param amount1Desired desired amount of token1
     function _mintBasePosition(
+        int24 _currentTick,
         int24 _baseLower,
         int24 _baseUpper,
         uint256 amount0Desired,
         uint256 amount1Desired
-    ) internal {
-        basePositionId = _mintPosition(_baseLower, _baseUpper, amount0Desired, amount1Desired);
+    ) internal returns (uint32 _basePositionId) {
+        _basePositionId = _mintPosition(_currentTick,_baseLower, _baseUpper, amount0Desired, amount1Desired);
     }
 
     /// @notice mints limit position
@@ -438,12 +455,13 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
     /// @param amount0Desired desired amount of token0
     /// @param amount1Desired desired amount of token1
     function _mintLimitPosition(
+        int24 _currentTick,
         int24 _limitLower,
         int24 _limitUpper,
         uint256 amount0Desired,
         uint256 amount1Desired
-    ) internal {
-        limitPositionId = _mintPosition(_limitLower, _limitUpper, amount0Desired, amount1Desired);
+    ) internal returns (uint32 _limitPositionId) {
+        _limitPositionId = _mintPosition(_currentTick, _limitLower, _limitUpper, amount0Desired, amount1Desired);
     }
 
     /** @notice Helper function to get the most conservative price
@@ -699,21 +717,26 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         int24 _limitUpper,
         int256 swapQuantity
     ) external override nonReentrant onlyRebalancerOrRebalanceManager {
-        int24 tickSpacing_ = IAlgebraPool(pool).tickSpacing();
-        if (!(_baseLower < _baseUpper && _baseLower % tickSpacing_ == 0 && _baseUpper % tickSpacing_ == 0)) {
+        if (!(_baseLower < _baseUpper && _baseLower % tickSpacing == 0 && _baseUpper % tickSpacing == 0)) {
             revert InvalidPosition();
         }
-        if (!(_limitLower < _limitUpper && _limitLower % tickSpacing_ == 0 && _limitUpper % tickSpacing_ == 0)) {
+        if (!(_limitLower < _limitUpper && _limitLower % tickSpacing == 0 && _limitUpper % tickSpacing == 0)) {
             revert InvalidPosition();
         }
         if (!(_baseLower != _limitLower || _baseUpper != _limitUpper)) revert IdenticalPositions();
 
-        // Clean positions and collect/distribute fees
-        (uint256 fees0, uint256 fees1) = _cleanPositions(false);
+        (uint32 _basePositionId, uint32 _limitPositionId) = (basePositionId, limitPositionId);
 
-        // dismantle positions, collect all tokens (fees already collected)
-        _dismantlePosition(basePositionId);
-        _dismantlePosition(limitPositionId);
+        // collect rewards from farming
+        _collectAndClaimRewards(_basePositionId);
+        _collectAndClaimRewards(_limitPositionId);
+
+        // dismantle positions, collect all tokens
+        (uint256 fees0, uint256 fees1) = _dismantlePosition(_basePositionId);
+        (uint256 _fees0, uint256 _fees1) = _dismantlePosition(_limitPositionId);
+        fees0 = fees0 + _fees0;
+        fees1 = fees1 + _fees1;
+        _distributeFees(fees0, fees1);
 
         // swap tokens if required
         if (swapQuantity != 0) {
@@ -738,13 +761,17 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
             totalSupply()
         );
 
-        _mintBasePosition(_baseLower, _baseUpper,
+        int24 currentTick = currentTick();
+
+        _basePositionId = _mintBasePosition(currentTick, _baseLower, _baseUpper,
             balance0, balance1);
         // balances had changed, so we need to recalculate them for the limit position
-        _mintLimitPosition(_limitLower, _limitUpper,
+        _limitPositionId = _mintLimitPosition(currentTick, _limitLower, _limitUpper,
             IERC20(token0).balanceOf(address(this)),
             IERC20(token1).balanceOf(address(this))
         );
+
+        (basePositionId, limitPositionId) = (_basePositionId, _limitPositionId);
     }
 
     /**
@@ -905,14 +932,6 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
     }
 
     /**
-     @notice Returns the current tickSpacing in the pool
-     @return tickSpacing current tickSpacing in the pool
-     */
-    function tickSpacing() external view override returns (int24) {
-        return IAlgebraPool(pool).tickSpacing();
-    }
-
-    /**
      @notice Calculates total quantity of token0 and token1 in both positions (and unused in the AlgebraVault)
      @return total0 Quantity of token0 in both positions (and unused in the AlgebraVault)
      @return total1 Quantity of token1 in both positions (and unused in the AlgebraVault)
@@ -1024,10 +1043,10 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
      @notice Returns current price tick
      @return tick Uniswap pool's current price tick
      */
-    function currentTick() public view override returns (int24 tick) {
+    function currentTick() public view override returns (int24) {
         (, int24 tick_, , , , bool unlocked_) = IAlgebraPool(pool).globalState();
         if (!unlocked_) revert InvalidDeposit();
-        tick = tick_;
+        return tick_;
     }
 
     /**
