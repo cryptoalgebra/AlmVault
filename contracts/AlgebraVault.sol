@@ -60,12 +60,12 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
     uint256 public override hysteresis;
 
     // Position tracking
-    uint128 public override basePositionId;
-    uint128 public override limitPositionId;
+    uint32 public override basePositionId;
+    uint32 public override limitPositionId;
 
+    address public override rebalanceManager;
     address public override ammFeeRecipient;
     address public override affiliate;
-    address public override rebalanceManager;
     address public override farmingRewardsDistributor;
 
     uint32 public override twapPeriod;
@@ -246,7 +246,7 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
      @notice Collect rewards and sends them to the farming contract.
      */
     function collectRewards() external override nonReentrant {
-        (uint128 _basePositionId, uint128 _limitPositionId) = (basePositionId, limitPositionId);
+        (uint32 _basePositionId, uint32 _limitPositionId) = (basePositionId, limitPositionId);
         if (_basePositionId != 0) _collectAndClaimRewards(_basePositionId);
         if (_limitPositionId != 0) _collectAndClaimRewards(_limitPositionId);
     }
@@ -387,7 +387,7 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         int24 tickUpper,
         uint256 amount0Desired,
         uint256 amount1Desired
-    ) internal returns (uint128) {
+    ) internal returns (uint32) {
         // Don't try to mint if we don't have any tokens
         if (amount0Desired == 0 && amount1Desired == 0) {
             return 0;
@@ -431,7 +431,7 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         // Approve and enter farming center
         _approveAndEnterFarming(positionId);
 
-        return uint128(positionId);
+        return uint32(positionId);
     }
 
     /// @notice mints base position
@@ -445,7 +445,7 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         int24 _baseUpper,
         uint256 amount0Desired,
         uint256 amount1Desired
-    ) internal returns (uint128 _basePositionId) {
+    ) internal returns (uint32 _basePositionId) {
         _basePositionId = _mintPosition(_currentTick,_baseLower, _baseUpper, amount0Desired, amount1Desired);
     }
 
@@ -460,7 +460,7 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         int24 _limitUpper,
         uint256 amount0Desired,
         uint256 amount1Desired
-    ) internal returns (uint128 _limitPositionId) {
+    ) internal returns (uint32 _limitPositionId) {
         _limitPositionId = _mintPosition(_currentTick, _limitLower, _limitUpper, amount0Desired, amount1Desired);
     }
 
@@ -725,7 +725,7 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         }
         if (!(_baseLower != _limitLower || _baseUpper != _limitUpper)) revert IdenticalPositions();
 
-        (uint128 _basePositionId, uint128 _limitPositionId) = (basePositionId, limitPositionId);
+        (uint32 _basePositionId, uint32 _limitPositionId) = (basePositionId, limitPositionId);
 
         // collect rewards from farming
         _collectAndClaimRewards(_basePositionId);

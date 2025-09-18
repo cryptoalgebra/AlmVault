@@ -47,10 +47,10 @@ interface IAlgebraVault {
     function limitUpper() external view returns (int24);
 
     /// @notice NFT ID of the base position. If 0, the base position is not initialized.
-    function basePositionId() external view returns (uint128);
+    function basePositionId() external view returns (uint32);
 
     /// @notice NFT ID of the limit position. If 0, the limit position is not initialized.
-    function limitPositionId() external view returns (uint128);
+    function limitPositionId() external view returns (uint32);
 
     function deposit0Max() external view returns (uint256);
 
