@@ -281,15 +281,7 @@ describe("Input Validation Checks", () => {
       },
     });
 
-    // const algebraVaultStableFactory = await ethers.getContractFactory('algebraVaultStable')
-    const uV3MathLocal = await (await ethers.getContractFactory("UV3Math")).deploy();
-    const algebraVaultStableDeployerLocal = await (await ethers.getContractFactory("AlgebraVaultStableDeployer", {
-      libraries: { UV3Math: uV3MathLocal.address }
-    })).deploy();
-    const algebraVaultStableFactoryFactory = await ethers.getContractFactory("AlgebraVaultStableFactory", {
-      libraries: { AlgebraVaultStableDeployer: algebraVaultStableDeployerLocal.address }
-    });
-    await expect(algebraVaultStableFactoryFactory.deploy(NULL_ADDRESS, NULL_ADDRESS, NULL_ADDRESS, "testamm")).to.be.reverted;
+    await expect(algebraVaultStableFactory.deploy(NULL_ADDRESS, 3600, 0)).to.be.reverted;
 
     //await expect(algebraVaultStable.algebraMintCallback(1, 1, [])).to.be.reverted;
     await expect(algebraVaultStable.algebraSwapCallback(1, 1, [])).to.be.reverted;
@@ -302,7 +294,6 @@ describe("Input Validation Checks", () => {
     await factory.createPool(token0.address, token2.address, '0x');
     let poolAddress = await factory.poolByPair(token0.address, token2.address);
     let uniswapPool = (await ethers.getContractAt("IAlgebraPool", poolAddress)) as IAlgebraPool;
-    await uniswapPool.initialize(encodePriceSqrt("1", "1"));
 
     await algebraVaultStableFactory.connect(wallet).createAlgebraVault(token0.address, token2.address);
 
@@ -312,12 +303,6 @@ describe("Input Validation Checks", () => {
 
     const pluginAddress = await uniswapPool.plugin()
     //console.log("default plugin: " + pluginAddress);
-
-    // Mint tokens and approve
-    await token0.mint(alice.address, ethers.utils.parseEther("10000"));
-    await token2.mint(alice.address, ethers.utils.parseEther("10000"));
-    await token0.connect(alice).approve(algebraVaultStable.address, ethers.utils.parseEther("10000"));
-    await token2.connect(alice).approve(algebraVaultStable.address, ethers.utils.parseEther("10000"));
 
     // plugin isn't connected yet
     await uniswapPool.setPlugin(NULL_ADDRESS);
@@ -335,8 +320,7 @@ describe("Input Validation Checks", () => {
   });
 
   it("algebraVaultStable - deposit", async () => {
-    const msg1 = "AV.deposit: deposits must be > 0",
-      msg2 = "AV.deposit: to",
+    const
       msg3 = "AV.deposit: deposits must be > 0",
       msg4 = "AV.deposit: deposits too large",
       msg5 = "AV.deposit: to",
@@ -369,13 +353,13 @@ describe("Input Validation Checks", () => {
 
     await expect(
       algebraVaultStable.deposit(smallTokenAmount, ethers.utils.parseEther("4000"), NULL_ADDRESS),
-    ).to.be.revertedWith(msg2);
+    ).to.be.revertedWith(msg5);
 
     vaultKey = await algebraVaultStableFactory.genKey(wallet.address, token0.address, token2.address);
     algebraVaultStableAddress = await algebraVaultStableFactory.getAlgebraVault(vaultKey);
     algebraVaultStable = (await ethers.getContractAt("AlgebraVaultStable", algebraVaultStableAddress)) as AlgebraVaultStable;
 
-    // Skip this test as it may have custom error
+    // Skip this test since we now don't have allowToken0
     // await expect(algebraVaultStable.deposit(smallTokenAmount, ethers.utils.parseEther("4000"), alice.address)).to.be.revertedWith(msg1);
 
     // check deposit values
@@ -441,12 +425,12 @@ describe("Input Validation Checks", () => {
     await expect(algebraVaultStable.connect(alice).withdraw(0, alice.address)).to.be.revertedWith(msg2);
   });
 
-  it("algebraVaultStable - rebalance", async () => {
+  it("AlgebraVault - rebalance", async () => {
     const msg1 = "AV.rebalance: base position invalid",
       msg3 = "AV.rebalance: identical positions",
       msg2 = "AV.rebalance: limit position invalid";
 
-    // alice approves the algebraVaultStable to transfer her tokens
+    // alice approves the AlgebraVault to transfer her tokens
     await token0.connect(alice).approve(algebraVaultStable.address, largeTokenAmount);
     await token1.connect(alice).approve(algebraVaultStable.address, largeTokenAmount);
     // mint tokens to alice
@@ -454,7 +438,7 @@ describe("Input Validation Checks", () => {
     await token1.mint(alice.address, largeTokenAmount);
 
     const tickSpacing = await algebraVaultStable.tickSpacing();
-    //console.log(tickSpacing.toString());
+    console.log(tickSpacing.toString());
     const fee = await algebraVaultStable.fee();
     //console.log(fee.toString());
 
@@ -462,33 +446,44 @@ describe("Input Validation Checks", () => {
       .connect(alice)
       .deposit(ethers.utils.parseEther("4000"), ethers.utils.parseEther("4000"), alice.address);
 
-    // Test successful rebalance
-    await algebraVaultStable.connect(wallet).rebalance(-1800, 1200, 0);
+    // await expect(algebraVaultStable.connect(wallet).rebalance(-1800, -1200, 0)).to.be.revertedWith(msg3); // there's no more such an error
+    await expect(algebraVaultStable.connect(wallet).rebalance(1800, 1200, 0)).to.be.revertedWith(msg1);
+    // await expect(algebraVaultStable.connect(wallet).rebalance(-1800, -1200, 0)).to.be.revertedWith(msg2); // there's no more such an error
 
-    //let afee = await algebraVaultStableFactory.connect(wallet).ammFee()
-    //let bfee = await algebraVaultStableFactory.connect(wallet).baseFee()
+    //let afee = await algebraVaultFactory.connect(wallet).ammFee()
+    //let bfee = await algebraVaultFactory.connect(wallet).baseFee()
     //console.log(afee.toString());
     //console.log(bfee.toString());
+    // const balance0before = await token0.balanceOf(algebraVaultStable.address);
+    // const balance1before = await token1.balanceOf(algebraVaultStable.address);
 
-    // Test successful rebalance
-    await algebraVaultStable.connect(wallet).rebalance(-1800, 1200, 0);
-    
-    // Check that balances changed (logic may be different for stable version)
+    await algebraVaultStable.connect(wallet).rebalance(-120, 120, 0);
     const balance0 = await token0.balanceOf(algebraVaultStable.address);
     const balance1 = await token1.balanceOf(algebraVaultStable.address);
-    // Don't check exact values as stable version may have different behavior
+    expect(balance0).to.be.equal(0);
+    expect(balance1).to.be.equal(0);
 
     const rebalanceSwapAmount = ethers.utils.parseEther("4000");
-    // Note: Some validation checks were removed in stable version, so these tests are commented out
-    // await expect(algebraVaultStable.connect(wallet).rebalance(1800, 1000, rebalanceSwapAmount)).to.be.revertedWith(msg1);
-    // await expect(algebraVaultStable.connect(wallet).rebalance(-1800, 1000, rebalanceSwapAmount)).to.be.revertedWith(msg1);
-    // await expect(algebraVaultStable.connect(wallet).rebalance(-1000, 1800, rebalanceSwapAmount)).to.be.revertedWith(msg1);
+    await expect(algebraVaultStable.connect(wallet).rebalance(1800, 1000, rebalanceSwapAmount)).to.be.revertedWith(
+      msg1,
+    );
+    await expect(algebraVaultStable.connect(wallet).rebalance(-1800, 1000, rebalanceSwapAmount)).to.be.revertedWith(
+      msg1,
+    );
+    await expect(algebraVaultStable.connect(wallet).rebalance(-1000, 1800, rebalanceSwapAmount)).to.be.revertedWith(
+      msg1,
+    );
 
-    // Test successful rebalance instead - use smaller range
-    await algebraVaultStable.connect(wallet).rebalance(-1200, 1200, 0);
-
-    // Other validation tests were also removed in stable version
-    // await expect(algebraVaultStable.connect(wallet).rebalance(-1800, 1200, rebalanceSwapAmount)).to.be.revertedWith(msg2);
+    // there's no more such an errors
+    // await expect(algebraVaultStable.connect(wallet).rebalance(-1800, 1200, rebalanceSwapAmount)).to.be.revertedWith(
+    //   msg2,
+    // );
+    // await expect(algebraVaultStable.connect(wallet).rebalance(-1800, 1200, rebalanceSwapAmount)).to.be.revertedWith(
+    //   msg2,
+    // );
+    // await expect(algebraVaultStable.connect(wallet).rebalance(-1800, 1200, rebalanceSwapAmount)).to.be.revertedWith(
+    //   msg2,
+    // );
   });
 
   it("algebraVaultStable - setTwapPeriod", async () => {
@@ -513,21 +508,37 @@ describe("Input Validation Checks", () => {
       .withArgs(wallet.address, NULL_ADDRESS);
   });
 
-  it("algebraVaultStable - symbol", async () => {
+  it("AlgebraVault - symbol", async () => {
     await factory.createPool(token1.address, token2.address, '0x');
-    const pool12Address = await factory.poolByPair(token1.address, token2.address);
-    const uniswapPool12 = (await ethers.getContractAt("IAlgebraPool", pool12Address)) as IAlgebraPool;
-    await uniswapPool12.initialize(encodePriceSqrt("1", "1"));
-    
-    const tx = await algebraVaultStableFactory.connect(wallet).createAlgebraVault(token1.address, token2.address);
+    await algebraVaultStableFactory.connect(wallet).createAlgebraVault(token1.address, token2.address);
 
-    // Get the vault key for the newly created vault
-    const vaultKey = await algebraVaultStableFactory.genKey(wallet.address, token1.address, token2.address);
-    let algebraVaultStableAddress = await algebraVaultStableFactory.getAlgebraVault(vaultKey);
+    let algebraVaultStableAddress = await algebraVaultStableFactory.allVaults(0);
     algebraVaultStable = (await ethers.getContractAt("AlgebraVaultStable", algebraVaultStableAddress)) as AlgebraVaultStable;
 
     let symbol = await algebraVaultStable.symbol();
-    expect(symbol).to.include("AV-VEL"); // Just check it contains the expected prefix
-  });
-});
+    expect(symbol).to.equal("AV-VEL-0-symbol-symbol");
 
+    algebraVaultStableAddress = await algebraVaultStableFactory.allVaults(1);
+    algebraVaultStable = (await ethers.getContractAt("AlgebraVaultStable", algebraVaultStableAddress)) as AlgebraVaultStable;
+
+    symbol = await algebraVaultStable.symbol();
+    expect(symbol).to.equal("AV-VEL-1-symbol-symbol");
+  });
+
+  // it("algebraVaultStable - symbol", async () => {
+  //   await factory.createPool(token1.address, token2.address, '0x');
+  //   const pool12Address = await factory.poolByPair(token1.address, token2.address);
+  //   const uniswapPool12 = (await ethers.getContractAt("IAlgebraPool", pool12Address)) as IAlgebraPool;
+  //   await uniswapPool12.initialize(encodePriceSqrt("1", "1"));
+    
+  //   const tx = await algebraVaultStableFactory.connect(wallet).createAlgebraVault(token1.address, token2.address);
+
+  //   // Get the vault key for the newly created vault
+  //   const vaultKey = await algebraVaultStableFactory.genKey(wallet.address, token1.address, token2.address);
+  //   let algebraVaultStableAddress = await algebraVaultStableFactory.getAlgebraVault(vaultKey);
+  //   algebraVaultStable = (await ethers.getContractAt("AlgebraVaultStable", algebraVaultStableAddress)) as AlgebraVaultStable;
+
+  //   let symbol = await algebraVaultStable.symbol();
+  //   expect(symbol).to.include("AV-VEL"); // Just check it contains the expected prefix
+  // });
+});
