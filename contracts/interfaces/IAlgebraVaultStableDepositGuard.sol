@@ -2,7 +2,7 @@
 
 pragma solidity >=0.8.4;
 
-interface IAlgebraVaultDepositGuard {
+interface IAlgebraVaultStableDepositGuard {
 
     /// @notice Emitted when the contract is deployed.
     /// @param _AlgebraVaultFactory Address of the AlgebraVaultFactory.
@@ -106,14 +106,10 @@ interface IAlgebraVaultDepositGuard {
     /// @param vaultDeployer The address of the vault deployer.
     /// @param token0 The address of the first token in the vault.
     /// @param token1 The address of the second token in the vault.
-    /// @param allowToken0 Boolean indicating if token0 is allowed in the vault.
-    /// @param allowToken1 Boolean indicating if token1 is allowed in the vault.
     /// @return key The computed unique key for the vault.
     function vaultKey(
         address vaultDeployer,
         address token0,
-        address token1,
-        bool allowToken0,
-        bool allowToken1
+        address token1
     ) external view returns (bytes32 key);
 }

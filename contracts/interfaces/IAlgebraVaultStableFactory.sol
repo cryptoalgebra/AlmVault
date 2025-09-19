@@ -2,7 +2,7 @@
 
 pragma solidity >=0.8.4;
 
-interface IAlgebraVaultFactory {
+interface IAlgebraVaultStableFactory {
     event FeeRecipient(address indexed sender, address feeRecipient);
 
     event AmmFee(address indexed sender, uint256 ammFee);
@@ -13,13 +13,11 @@ interface IAlgebraVaultFactory {
 
     event DeployAlgebraVaultFactory(address indexed sender, address algebraFactory);
 
-    event AlgebraVaultCreated(
+    event AlgebraVaultStableCreated(
         address indexed sender,
         address algebraVault,
         address tokenA,
-        bool allowTokenA,
         address tokenB,
-        bool allowTokenB,
         uint256 count
     );
 
@@ -55,16 +53,12 @@ interface IAlgebraVaultFactory {
 
     function createAlgebraVault(
         address tokenA,
-        bool allowTokenA,
-        address tokenB,
-        bool allowTokenB
+        address tokenB
     ) external returns (address algebraVault);
 
     function genKey(
         address deployer,
         address token0,
-        address token1,
-        bool allowToken0,
-        bool allowToken1
+        address token1
     ) external pure returns (bytes32 key);
 }

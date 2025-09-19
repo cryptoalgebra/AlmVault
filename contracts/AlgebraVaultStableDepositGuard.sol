@@ -2,16 +2,16 @@
 
 pragma solidity >=0.8.4;
 
-import { IAlgebraVaultDepositGuard } from "./interfaces/IAlgebraVaultDepositGuard.sol";
-import { IAlgebraVaultFactory } from "./interfaces/IAlgebraVaultFactory.sol";
-import { IAlgebraVault } from "./interfaces/IAlgebraVault.sol";
+import { IAlgebraVaultStableDepositGuard } from "./interfaces/IAlgebraVaultStableDepositGuard.sol";
+import { IAlgebraVaultStableFactory } from "./interfaces/IAlgebraVaultStableFactory.sol";
+import { IAlgebraVaultStable } from "./interfaces/IAlgebraVaultStable.sol";
 import { IWRAPPED_NATIVE } from "./interfaces/IWRAPPED_NATIVE.sol";
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-contract AlgebraVaultDepositGuard is IAlgebraVaultDepositGuard, ReentrancyGuard {
+contract AlgebraVaultStableDepositGuard is IAlgebraVaultStableDepositGuard, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     address public immutable override AlgebraVaultFactory;
@@ -19,7 +19,7 @@ contract AlgebraVaultDepositGuard is IAlgebraVaultDepositGuard, ReentrancyGuard 
 
     address private constant NULL_ADDRESS = address(0);
 
-    /// @notice Constructs the IAlgebraVaultDepositGuard contract.
+    /// @notice Constructs the IAlgebraVaultStableDepositGuard contract.
     /// @param _AlgebraVaultFactory The address of the AlgebraVaultFactory.
     constructor(address _AlgebraVaultFactory, address _WRAPPED_NATIVE) {
         require(_AlgebraVaultFactory != NULL_ADDRESS, "DG.constructor: zero address");
@@ -32,7 +32,7 @@ contract AlgebraVaultDepositGuard is IAlgebraVaultDepositGuard, ReentrancyGuard 
         assert(msg.sender == WRAPPED_NATIVE); // only accept ETH via fallback from the WRAPPED_NATIVE contract
     }
 
-    /// @inheritdoc IAlgebraVaultDepositGuard
+    /// @inheritdoc IAlgebraVaultStableDepositGuard
     function forwardDepositToAlgebraVault(
         address vault,
         address vaultDeployer,
@@ -44,7 +44,7 @@ contract AlgebraVaultDepositGuard is IAlgebraVaultDepositGuard, ReentrancyGuard 
         vaultTokens = _forwardDeposit(vault, vaultDeployer, token, amount, minimumProceeds, to, false);
     }
 
-    /// @inheritdoc IAlgebraVaultDepositGuard
+    /// @inheritdoc IAlgebraVaultStableDepositGuard
     function forwardNativeDepositToAlgebraVault(
         address vault,
         address vaultDeployer,
@@ -57,7 +57,7 @@ contract AlgebraVaultDepositGuard is IAlgebraVaultDepositGuard, ReentrancyGuard 
         vaultTokens = _forwardDeposit(vault, vaultDeployer, WRAPPED_NATIVE, nativeAmount, minimumProceeds, to, true);
     }
 
-    /// @inheritdoc IAlgebraVaultDepositGuard
+    /// @inheritdoc IAlgebraVaultStableDepositGuard
     function forwardWithdrawFromAlgebraVault(
         address vault,
         address vaultDeployer,
@@ -69,7 +69,7 @@ contract AlgebraVaultDepositGuard is IAlgebraVaultDepositGuard, ReentrancyGuard 
         (amount0, amount1) = _forwardWithdraw(vault, vaultDeployer, shares, to, minAmount0, minAmount1, false);
     }
 
-    /// @inheritdoc IAlgebraVaultDepositGuard
+    /// @inheritdoc IAlgebraVaultStableDepositGuard
     function forwardNativeWithdrawFromAlgebraVault(
         address vault,
         address vaultDeployer,
@@ -81,15 +81,13 @@ contract AlgebraVaultDepositGuard is IAlgebraVaultDepositGuard, ReentrancyGuard 
         (amount0, amount1) = _forwardWithdraw(vault, vaultDeployer, shares, to, minAmount0, minAmount1, true);
     }
 
-    /// @inheritdoc IAlgebraVaultDepositGuard
+    /// @inheritdoc IAlgebraVaultStableDepositGuard
     function vaultKey(
         address vaultDeployer,
         address token0,
-        address token1,
-        bool allowToken0,
-        bool allowToken1
+        address token1
     ) public view override returns (bytes32 key) {
-        key = IAlgebraVaultFactory(AlgebraVaultFactory).genKey(vaultDeployer, token0, token1, allowToken0, allowToken1);
+        key = IAlgebraVaultStableFactory(AlgebraVaultFactory).genKey(vaultDeployer, token0, token1);
     }
 
     function _forwardDeposit(
@@ -102,15 +100,11 @@ contract AlgebraVaultDepositGuard is IAlgebraVaultDepositGuard, ReentrancyGuard 
         bool depositNative
     ) private returns (uint256 vaultTokens) {
         _validateRecipient(to);
-        (IAlgebraVault algebraVault, address token0, address token1) = _validateVault(vault, vaultDeployer, depositNative);
+        (IAlgebraVaultStable algebraVault, address token0, address token1) = _validateVault(vault, vaultDeployer, depositNative);
 
         require(token == token0 || token == token1, "Invalid token");
 
-        if (token == token0) {
-            require(algebraVault.allowToken0(), "Token0 deposits not allowed");
-        } else {
-            require(algebraVault.allowToken1(), "Token1 deposits not allowed");
-        }
+        // For stable vault, both tokens are allowed
 
         // if deposit is a native deposit then we don't need to transfer WRAPPED_NATIVE
         // since this contract receives WRAPPED_NATIVE amount on successful WRAPPED_NATIVE#deposit
@@ -139,7 +133,7 @@ contract AlgebraVaultDepositGuard is IAlgebraVaultDepositGuard, ReentrancyGuard 
         bool withdrawNative
     ) private returns (uint256 amount0, uint256 amount1) {
         _validateRecipient(to);
-        (IAlgebraVault algebraVault, address token0, address token1) = _validateVault(vault, vaultDeployer, withdrawNative);
+        (IAlgebraVaultStable algebraVault, address token0, address token1) = _validateVault(vault, vaultDeployer, withdrawNative);
 
         // - sender must grant the guard an allowance for the vault share token
         // - the guard can then transfer those share tokens to itself
@@ -173,8 +167,8 @@ contract AlgebraVaultDepositGuard is IAlgebraVaultDepositGuard, ReentrancyGuard 
         address vault,
         address vaultDeployer,
         bool validateNative
-    ) private view returns (IAlgebraVault algebraVault, address token0, address token1) {
-        algebraVault = IAlgebraVault(vault);
+    ) private view returns (IAlgebraVaultStable algebraVault, address token0, address token1) {
+        algebraVault = IAlgebraVaultStable(vault);
 
         token0 = algebraVault.token0();
         token1 = algebraVault.token1();
@@ -186,11 +180,9 @@ contract AlgebraVaultDepositGuard is IAlgebraVaultDepositGuard, ReentrancyGuard 
         bytes32 factoryVaultKey = vaultKey(
             vaultDeployer,
             token0,
-            token1,
-            algebraVault.allowToken0(),
-            algebraVault.allowToken1()
+            token1
         );
 
-        require(IAlgebraVaultFactory(AlgebraVaultFactory).getAlgebraVault(factoryVaultKey) == vault, "Invalid vault");
+        require(IAlgebraVaultStableFactory(AlgebraVaultFactory).getAlgebraVault(factoryVaultKey) == vault, "Invalid vault");
     }
 }
