@@ -79,9 +79,7 @@ describe("AlgebraVault General Functionality", () => {
       algebraVaultFactory,
       depositGuard,
     } = await loadFixture(algebraVaultTestFixture));
-    // console.log("AlgebraVault Factory " + algebraVaultFactory.address);
-    // console.log("AlgebraVault factory owner " + await algebraVaultFactory.owner());
-    // console.log("wallet used to create new AlgebraVaults " + wallet.address);
+   
     await algebraVaultFactory.connect(wallet).setFeeRecipient(other.address);
 
     await factory.createPool(token0.address, token1.address, "0x");
@@ -103,6 +101,8 @@ describe("AlgebraVault General Functionality", () => {
     // someone to swap with
     await token0.mint(carol.address, giantTokenAmount);
     await token1.mint(carol.address, giantTokenAmount);
+
+    
 
     await token0.connect(carol).approve(nft.address, veryLargeTokenAmount);
     await token1.connect(carol).approve(nft.address, veryLargeTokenAmount);
@@ -138,10 +138,7 @@ describe("AlgebraVault General Functionality", () => {
       algebraVaultAddress
     )) as AlgebraVault;
     await algebraVault.connect(wallet).setAffiliate(bob.address);
-    // console.log("AlgebraVault address " + algebraVault.address);
-
-    //let state = await algebraPool.globalState()
-    //console.log(state)
+    
 
     await algebraVault
       .connect(wallet)
@@ -223,7 +220,7 @@ describe("AlgebraVault General Functionality", () => {
 
     //actual balances after deposits
     let vault_balance_after_deposits = await algebraVault.getTotalAmounts();
-    console.log(vault_balance_after_deposits);
+    
 
     //alice withdraw
     let alice_liq_balance = await algebraVault.balanceOf(alice.address);
@@ -232,7 +229,7 @@ describe("AlgebraVault General Functionality", () => {
       .withdraw(alice_liq_balance, alice.address);
     let token0vault = await token0.balanceOf(algebraVault.address);
     let token1vault = await token1.balanceOf(algebraVault.address);
-    console.log(token0vault);
+    
     expect(token0vault).to.equal(
       vault_balance_after_deposits[0].sub(smallTokenAmount)
     );
@@ -405,8 +402,7 @@ describe("AlgebraVault General Functionality", () => {
     let token1vault = await token1.balanceOf(algebraVault.address);
     let basePositionId = await algebraVault.basePositionId();
     let limitPositionId = await algebraVault.limitPositionId();
-    console.log(basePositionId);
-    console.log(limitPositionId);
+    
 
     expect(token0vault).to.equal(0);
     expect(token1vault).to.equal(0);
@@ -422,7 +418,7 @@ describe("AlgebraVault General Functionality", () => {
 
     let basePosition = await algebraVault.getBasePosition();
     let limitPosition = await algebraVault.getLimitPosition();
-    console.log(basePosition);
+    
     expect(basePosition[0]).to.be.gt(ethers.utils.parseEther("0"));
 
     expect(limitPosition[0]).to.be.equal(0);
@@ -552,8 +548,7 @@ describe("AlgebraVault General Functionality", () => {
   });
 
   it("deposit with deposit guard with native deposit", async () => {
-    console.log(await depositGuard.WRAPPED_NATIVE());
-    console.log(await ethers.provider.getBalance(alice.address));
+    
     await depositGuard
       .connect(alice)
       .forwardNativeDepositToAlgebraVault(
@@ -768,9 +763,9 @@ describe("AlgebraVault General Functionality", () => {
     );
 
     const pool = await pairFlash.getPool(token0.address, token1.address);
-    console.log(pool);
+    
 
-    console.log(await factory.poolDeployer());
+    
     await expect(
       pairFlash.connect(alice).initFlash({
         token0: token0.address,
@@ -911,7 +906,7 @@ describe("AlgebraVault General Functionality", () => {
       },
       { gasLimit: 100000000 }
     );
-    console.log("Console.log() Collect Fee");
+    
     await algebraVault.connect(alice).collectFees();
     let alice_liq_balance = algebraVault.balanceOf(alice.address);
     const [amount0_alice, amount1_alice] = await algebraVault
@@ -925,7 +920,7 @@ describe("AlgebraVault General Functionality", () => {
     const [amount0_bob, amount1_bob] = await algebraVault
       .connect(bob)
       .callStatic.withdraw(bob_liq_balance, bob.address);
-    console.log(amount0_alice, amount0_bob);
+    
 
     await algebraVault.connect(bob).withdraw(bob_liq_balance, bob.address);
   });
@@ -952,8 +947,7 @@ describe("AlgebraVault General Functionality", () => {
       .connect(bob)
       .deposit(ethers.utils.parseEther("0.001"), 0, bob.address);
     let bob_liq_balance = await algebraVault.balanceOf(bob.address);
-    console.log("alice shares amount: ", alice_liq_balance);
-    console.log("bob shares amount: ", bob_liq_balance);
+    
 
     //Mint token
     await token1.mint(algebraVault.address, ethers.utils.parseEther("0.001"));
@@ -962,17 +956,10 @@ describe("AlgebraVault General Functionality", () => {
     //   .withdraw(alice_liq_balance, alice.address);
     let token0_alice_balance_after = await token0.balanceOf(alice.address);
 
-    console.log("alice balance token0 before deposit: ", token0_alice_balance);
-    console.log(
-      "alice balance token0 after Withdraw: ",
-      token0_alice_balance_after
-    );
+    
     await algebraVault.connect(bob).withdraw(bob_liq_balance, bob.address);
     let token0_bob_balance_after_withdraw = await token0.balanceOf(bob.address);
-    console.log(
-      "bob balance token0 after withdraw: ",
-      token0_bob_balance_after_withdraw
-    );
+    
     await token0.connect(carol).mint(carol.address, veryLargeTokenAmount);
     await token0
       .connect(carol)
@@ -981,13 +968,13 @@ describe("AlgebraVault General Functionality", () => {
       .connect(carol)
       .deposit(ethers.utils.parseEther("0.001"), 0, carol.address);
     let carol_liq_balance = await algebraVault.balanceOf(carol.address);
-    console.log(carol_liq_balance);
+    
 
     await algebraVault
       .connect(carol)
       .withdraw(carol_liq_balance, carol.address);
     let carol_tokn0_balance_after = await token0.balanceOf(carol.address);
-    console.log(carol_tokn0_balance_after);
+    
   });
 
   it("Delta balances after withdrowal", async () => {
@@ -1060,9 +1047,7 @@ describe("AlgebraVault General Functionality", () => {
     let bob_liq_balance = await algebraVault.balanceOf(bob.address);
     let carol_liq_balance = await algebraVault.balanceOf(carol.address);
 
-    console.log(alice_liq_balance);
-    console.log(bob_liq_balance);
-    console.log(carol_liq_balance);
+   
   });
 
   it("check baseLower",async () => {
@@ -1072,7 +1057,7 @@ describe("AlgebraVault General Functionality", () => {
     await algebraVault.connect(alice).deposit(smallTokenAmount, 0, alice.address);
     await expect(algebraVault.connect(wallet).rebalance(1800, 3600, -600, 600, 0)).to.emit(algebraPool, "Mint");
     let baseLower = await algebraVault.baseLower();
-    console.log(baseLower);
+    
   });
   it("check baseUpper",async () => {
     await token0.mint(alice.address, veryLargeTokenAmount);
@@ -1080,7 +1065,7 @@ describe("AlgebraVault General Functionality", () => {
     await algebraVault.connect(alice).deposit(smallTokenAmount, 0, alice.address);
     await expect(algebraVault.connect(wallet).rebalance(1800, 3600, -600, 600, 0)).to.emit(algebraPool, "Mint");
     let baseUpper = await algebraVault.baseUpper();
-    console.log(baseUpper);
+    
   });
   it("check limitPosition",async () => {
     await token0.mint(algebraVault.address, veryLargeTokenAmount);
@@ -1091,8 +1076,7 @@ describe("AlgebraVault General Functionality", () => {
     await expect(algebraVault.connect(wallet).rebalance(1800, 3600, -3600, -1800, 0)).to.emit(algebraPool, "Mint");
     let limitUpper = await algebraVault.limitUpper();
     let limitLower = await algebraVault.limitLower();
-    console.log(limitLower);
-    console.log(limitUpper);
+ 
   });
 
   it("check setAuxTwapPeriod",async () => {
@@ -1100,7 +1084,7 @@ describe("AlgebraVault General Functionality", () => {
   });
   it("check hysteresis",async () => {
     let hysteresis = await algebraVault.hysteresis();
-    console.log(hysteresis);
+    
   });
   
   it("check change rebalance manager",async () => {
@@ -1196,13 +1180,24 @@ describe("AlgebraVault General Functionality", () => {
   // });
 
   it("check factory: setAmmFee",async () => {
+    await expect(algebraVaultFactory.connect(alice).setAmmFee(ethers.utils.parseEther("0.001"))).to.be.reverted;
+    await expect(algebraVaultFactory.connect(wallet).setAmmFee(ethers.utils.parseEther("10"))).to.be.reverted;
     await expect(algebraVaultFactory.connect(wallet).setAmmFee(ethers.utils.parseEther("0.001"))).to.emit(algebraVaultFactory, "AmmFee");
+
   });
   it("check factory: setBaseFee",async () => {
+    await expect(algebraVaultFactory.connect(alice).setBaseFee(ethers.utils.parseEther("0.001"))).to.be.reverted;
+    await expect(algebraVaultFactory.connect(wallet).setBaseFee(ethers.utils.parseEther("10"))).to.be.reverted;
     await expect(algebraVaultFactory.connect(wallet).setBaseFee(ethers.utils.parseEther("0.001"))).to.emit(algebraVaultFactory, "BaseFee");
   });
   it("check factory: setBaseFeeSplit",async () => {
+    await expect(algebraVaultFactory.connect(alice).setBaseFeeSplit(ethers.utils.parseEther("0.001"))).to.be.reverted;
+    await expect(algebraVaultFactory.connect(wallet).setBaseFeeSplit(ethers.utils.parseEther("10"))).to.be.reverted;
     await expect(algebraVaultFactory.connect(wallet).setBaseFeeSplit(ethers.utils.parseEther("0.001"))).to.emit(algebraVaultFactory, "BaseFeeSplit");
+  });
+  it("check createAlgebraVault",async()=>{
+    await expect(algebraVaultFactory.connect(alice).createAlgebraVault(token0.address,true, token1.address,false)).to.be.reverted;
+
   });
 });
 
@@ -1249,9 +1244,9 @@ describe("AlgebraVault General Functionality (allowed token1)", () => {
             depositGuard,
             depositGuardToken1,
         } = await loadFixture(algebraVaultTestFixture));
-        // console.log("AlgebraVault Factory " + algebraVaultFactory.address);
-        // console.log("AlgebraVault factory owner " + await algebraVaultFactory.owner());
-        // console.log("wallet used to create new AlgebraVaults " + wallet.address);
+        
+        await algebraVaultFactory.connect(alice).setFeeRecipient(alice.address);
+        await algebraVaultFactory.connect(alice).setFeeRecipient(NULL_ADDRESS);
         await algebraVaultFactory.connect(wallet).setFeeRecipient(other.address);
 
         await factory.createPool(token0.address, token1.address, "0x");
@@ -1309,10 +1304,7 @@ describe("AlgebraVault General Functionality (allowed token1)", () => {
             algebraVaultAddress
         )) as AlgebraVault;
         await algebraVault.connect(wallet).setAffiliate(bob.address);
-        // console.log("AlgebraVault address " + algebraVault.address);
-
-        //let state = await algebraPool.globalState()
-        //console.log(state)
+        
 
         await algebraVault
             .connect(wallet)
