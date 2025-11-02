@@ -130,9 +130,7 @@ contract PairFlash is IAlgebraFlashCallback {
             codeSize := extcodesize(pool)
         }
         if(codeSize == 0) {
-            revert("PairFlash: pool does not exist");
-            return address(pool);
-            
+            revert("PairFlash: pool does not exist");    
         }
 
         emit FlashInitiated(address(pool), params.amount0, params.amount1);

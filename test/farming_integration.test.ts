@@ -840,10 +840,6 @@ describe("Farming Integration", () => {
           const [, carolAmounts] =
             await farmingRewardsDistributor.claimableRewards(carol.address);
 
-          console.log("Alice LP Balance: ", alice_liq_balance);
-          console.log("Carol LP Balance: ", carol_liq_balance);
-          console.log("Reward to Alice: ", aliceAmounts);
-          console.log("Reward to Carol: ", carolAmounts);
         });
 
         it("Puase/Unpause stake", async () => {
@@ -1123,8 +1119,6 @@ describe("Farming Integration", () => {
         await expect(
           farmingRewardsDistributor.connect(alice).getAllRewards()
         ).to.be.emit(algebraEternalFarming, "RewardsCollected");
-
-        console.log(await token3.balanceOf(alice.address));
       });
     });
   });

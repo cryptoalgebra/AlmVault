@@ -105,17 +105,15 @@ describe("Access Control Checks", () => {
   });
 
   it("AlgebraVault", async () => {
-    const msg1 = "AV.onlyRebalancerOrRebalanceManager not allowed";
-    const msg2 = "AV.onlyManager not allowed";
-
-
-    await expect(algebraVault.connect(alice).rebalance(-1800, 1800, -600, 0, 0)).to.be.revertedWith(msg1);
+    await expect(algebraVault.connect(alice).rebalance(-1800, 1800, -600, 0, 0))
+      .to.be.revertedWithCustomError(algebraVault, "NotRebalancer");
     await expect(
       algebraVault.connect(alice).setDepositMax(ethers.utils.parseEther("100000"), ethers.utils.parseEther("100000")),
-    ).to.be.revertedWith(msg2);
+    ).to.be.revertedWithCustomError(algebraVault, "NotRebalancer");
     await expect(algebraVault.connect(alice).setHysteresis(50)) // 5%
-      .to.be.revertedWith(msg2);
-    await expect(algebraVault.connect(alice).setTwapPeriod(1800)).to.be.revertedWith(msg2);
+      .to.be.revertedWithCustomError(algebraVault, "NotManager");
+    await expect(algebraVault.connect(alice).setTwapPeriod(1800))
+      .to.be.revertedWithCustomError(algebraVault, "NotManager");
   });
 });
 
@@ -210,16 +208,21 @@ describe("Input Validation Checks", () => {
         UV3Math: uV3Math.address,
       },
     });
-    //const libAlgebraVaultDeployer = (await algebraVaultDeployer.deploy()) as AlgebraVaultDeployer
     const libAlgebraVaultDeployer = await algebraVaultDeployer.deploy();
+
+    const farmingRewardsDistributorDeployer = await ethers.getContractFactory(
+      "FarmingRewardsDistributorDeployer"
+    );
+    const libFarmingRewardsDistributorDeployer = await farmingRewardsDistributorDeployer.deploy();
 
     const algebraVaultFactoryFactory = await ethers.getContractFactory("AlgebraVaultFactory", {
       libraries: {
         AlgebraVaultDeployer: libAlgebraVaultDeployer.address,
+        FarmingRewardsDistributorDeployer: libFarmingRewardsDistributorDeployer.address,
       },
     });
 
-    await expect(algebraVaultFactoryFactory.deploy(NULL_ADDRESS, NULL_ADDRESS, NULL_ADDRESS, "VEL")).to.be.revertedWith(msg1);
+    await expect(algebraVaultFactoryFactory.deploy(NULL_ADDRESS, NULL_ADDRESS, NULL_ADDRESS, NULL_ADDRESS, "VEL")).to.be.revertedWith(msg1);
 
     await expect(algebraVaultFactory.connect(wallet).setFeeRecipient(NULL_ADDRESS)).to.be.revertedWith(msg2);
     await expect(algebraVaultFactory.connect(wallet).setBaseFee(PERCENT_101)).to.be.revertedWith(msg3);
@@ -289,117 +292,111 @@ describe("Input Validation Checks", () => {
   });
 
   it("AlgebraVault - disconnected plugin", async () => {
-    const msg1 = "AV.checkHysteresis: diconnected plugin",
-          msg2 = "AV.deposit: to";
-
     let poolAddress = await factory.poolByPair(token0.address, token1.address);
     let uniswapPool = (await ethers.getContractAt("IAlgebraPool", poolAddress)) as IAlgebraPool;
-
-    await algebraVaultFactory.connect(wallet).createAlgebraVault(token0.address, true, token1.address, false);
 
     const pluginAddress = await uniswapPool.plugin()
     //console.log("default plugin: " + pluginAddress);
 
     // plugin isn't connected yet
     await uniswapPool.setPlugin(NULL_ADDRESS);
+    
+    // Mint tokens to alice first
+    await token0.mint(alice.address, largeTokenAmount);
+    await token1.mint(alice.address, largeTokenAmount);
+    await token0.connect(alice).approve(algebraVault.address, largeTokenAmount);
+    await token1.connect(alice).approve(algebraVault.address, largeTokenAmount);
+    
     await expect(
-        algebraVault.deposit(ethers.utils.parseEther("4000"), ethers.utils.parseEther("4000"), alice.address),
-      ).to.be.revertedWith(msg1);
+        algebraVault.connect(alice).deposit(ethers.utils.parseEther("4000"), 0, alice.address),
+      ).to.be.revertedWithCustomError(algebraVault, "AlgebraDisconnectedPlugin");
 
     // connect plugin here
     await uniswapPool.setPlugin(pluginAddress);
 
     //check 'to' address
     await expect(
-      algebraVault.connect(alice).deposit(ethers.utils.parseEther("4000"), ethers.utils.parseEther("4000"), NULL_ADDRESS),
-    ).to.be.revertedWith(msg2);
+      algebraVault.connect(alice).deposit(ethers.utils.parseEther("4000"), 0, NULL_ADDRESS),
+    ).to.be.revertedWithCustomError(algebraVault, "ZeroAddress");
   });
 
   it("AlgebraVault - deposit", async () => {
-    const msg1 = "AV.deposit: token0 not allowed",
-      msg2 = "AV.deposit: token1 not allowed",
-      msg3 = "AV.deposit: deposits must be > 0",
-      msg4 = "AV.deposit: deposits too large",
-      msg5 = "AV.deposit: to",
-      msg6 = "AV.deposit: maxTotalSupply";
-
-    // pool already exists and initialized
-    //await factory.createPool(token0.address, token1.address)
-
-    let poolAddress = await factory.poolByPair(token0.address, token1.address);
-    let uniswapPool = (await ethers.getContractAt("IAlgebraPool", poolAddress)) as IAlgebraPool;
-    // pool already exists and initialized
-    //await uniswapPool.initialize(encodePriceSqrt('1', '1'))
-
+    // Create pool for token0/token2 if not exists
     await factory.createPool(token0.address, token2.address, '0x');
-    poolAddress = await factory.poolByPair(token0.address, token2.address);
-    uniswapPool = (await ethers.getContractAt("IAlgebraPool", poolAddress)) as IAlgebraPool;
+    let poolAddress = await factory.poolByPair(token0.address, token2.address);
+    let uniswapPool = (await ethers.getContractAt("IAlgebraPool", poolAddress)) as IAlgebraPool;
     await uniswapPool.initialize(encodePriceSqrt("1", "1"));
 
-    await algebraVaultFactory.connect(wallet).createAlgebraVault(token0.address, true, token1.address, false);
-    await algebraVaultFactory.connect(wallet).createAlgebraVault(token0.address, false, token2.address, true);
+    await network.provider.send("evm_increaseTime", [3600]);
+    await network.provider.send("evm_mine", []);
 
-    // check allowToken policy
-    let vaultKey = await algebraVaultFactory.genKey(wallet.address, token0.address, token1.address, true, false);
+    // Create vaults with token0/token2 pairs (different from token0/token1 in beforeEach)
+    const tx1 = await algebraVaultFactory.connect(wallet).createAlgebraVault(token0.address, true, token2.address, false);
+    const tx2 = await algebraVaultFactory.connect(wallet).createAlgebraVault(token0.address, false, token2.address, true);
+
+    // check allowToken policy - first vault allows only token0
+    let vaultKey = await algebraVaultFactory.genKey(wallet.address, token0.address, token2.address, true, false);
     let algebraVaultAddress = await algebraVaultFactory.getAlgebraVault(vaultKey);
-    algebraVault = (await ethers.getContractAt("AlgebraVault", algebraVaultAddress)) as AlgebraVault;
+    let testVault = (await ethers.getContractAt("AlgebraVault", algebraVaultAddress)) as AlgebraVault;
 
+    // This vault allows only token0, trying to deposit token1 (token2) should fail
     await expect(
-      algebraVault.deposit(smallTokenAmount, ethers.utils.parseEther("4000"), alice.address),
-    ).to.be.revertedWith(msg2);
+      testVault.deposit(smallTokenAmount, ethers.utils.parseEther("4000"), alice.address),
+    ).to.be.revertedWithCustomError(testVault, "InvalidDeposit");
 
+    // Second vault allows only token1 (token2)
     vaultKey = await algebraVaultFactory.genKey(wallet.address, token0.address, token2.address, false, true);
     algebraVaultAddress = await algebraVaultFactory.getAlgebraVault(vaultKey);
-    algebraVault = (await ethers.getContractAt("AlgebraVault", algebraVaultAddress)) as AlgebraVault;
+    testVault = (await ethers.getContractAt("AlgebraVault", algebraVaultAddress)) as AlgebraVault;
 
+    // This vault allows only token1 (token2), trying to deposit token0 should fail
     await expect(
-      algebraVault.deposit(smallTokenAmount, ethers.utils.parseEther("4000"), alice.address),
-    ).to.be.revertedWith(msg1);
+      testVault.deposit(smallTokenAmount, ethers.utils.parseEther("4000"), alice.address),
+    ).to.be.revertedWithCustomError(testVault, "InvalidDeposit");
 
     // check deposit values
-    vaultKey = await algebraVaultFactory.genKey(wallet.address, token0.address, token1.address, true, false);
+    vaultKey = await algebraVaultFactory.genKey(wallet.address, token0.address, token2.address, true, false);
     algebraVaultAddress = await algebraVaultFactory.getAlgebraVault(vaultKey);
-    algebraVault = (await ethers.getContractAt("AlgebraVault", algebraVaultAddress)) as AlgebraVault;
-    await expect(algebraVault.deposit(0, 0, alice.address)).to.be.revertedWith(msg3);
+    testVault = (await ethers.getContractAt("AlgebraVault", algebraVaultAddress)) as AlgebraVault;
+    await expect(testVault.deposit(0, 0, alice.address)).to.be.revertedWithCustomError(testVault, "InvalidDeposit");
 
     vaultKey = await algebraVaultFactory.genKey(wallet.address, token0.address, token2.address, false, true);
     algebraVaultAddress = await algebraVaultFactory.getAlgebraVault(vaultKey);
-    algebraVault = (await ethers.getContractAt("AlgebraVault", algebraVaultAddress)) as AlgebraVault;
-    await expect(algebraVault.deposit(0, 0, alice.address)).to.be.revertedWith(msg3);
+    testVault = (await ethers.getContractAt("AlgebraVault", algebraVaultAddress)) as AlgebraVault;
+    await expect(testVault.deposit(0, 0, alice.address)).to.be.revertedWithCustomError(testVault, "InvalidDeposit");
 
     // check against max deposit amounts
-    vaultKey = await algebraVaultFactory.genKey(wallet.address, token0.address, token1.address, true, false);
+    vaultKey = await algebraVaultFactory.genKey(wallet.address, token0.address, token2.address, true, false);
     algebraVaultAddress = await algebraVaultFactory.getAlgebraVault(vaultKey);
-    algebraVault = (await ethers.getContractAt("AlgebraVault", algebraVaultAddress)) as AlgebraVault;
+    testVault = (await ethers.getContractAt("AlgebraVault", algebraVaultAddress)) as AlgebraVault;
+    await testVault.connect(wallet).setDepositMax(ethers.utils.parseEther("100000"), ethers.utils.parseEther("100000"));
+    
     await expect(
-      algebraVault.deposit(ethers.utils.parseEther("200000"), ethers.utils.parseEther("4000"), alice.address),
-    ).to.be.revertedWith(msg4);
+      testVault.deposit(ethers.utils.parseEther("200000"), ethers.utils.parseEther("4000"), alice.address),
+    ).to.be.revertedWithCustomError(testVault, "InvalidDeposit");
     await expect(
-      algebraVault.deposit(ethers.utils.parseEther("4000"), ethers.utils.parseEther("200000"), alice.address),
-    ).to.be.revertedWith(msg4);
+      testVault.deposit(ethers.utils.parseEther("4000"), ethers.utils.parseEther("200000"), alice.address),
+    ).to.be.revertedWithCustomError(testVault, "InvalidDeposit");
 
     // alice approves the AlgebraVault to transfer her tokens
-    await token0.connect(alice).approve(algebraVault.address, largeTokenAmount);
-    await token1.connect(alice).approve(algebraVault.address, largeTokenAmount);
+    await token0.connect(alice).approve(testVault.address, largeTokenAmount);
+    await token2.connect(alice).approve(testVault.address, largeTokenAmount);
     // mint tokens to alice
     await token0.mint(alice.address, largeTokenAmount);
-    await token1.mint(alice.address, largeTokenAmount);
+    await token2.mint(alice.address, largeTokenAmount);
 
     //check 'to' address
     await expect(
-      algebraVault.connect(alice).deposit(ethers.utils.parseEther("4000"), ethers.utils.parseEther("4000"), NULL_ADDRESS),
-    ).to.be.revertedWith(msg5);
+      testVault.connect(alice).deposit(ethers.utils.parseEther("4000"), 0, NULL_ADDRESS),
+    ).to.be.revertedWithCustomError(testVault, "ZeroAddress");
     await expect(
-      algebraVault
+      testVault
         .connect(alice)
-        .deposit(ethers.utils.parseEther("4000"), ethers.utils.parseEther("4000"), algebraVaultAddress),
-    ).to.be.revertedWith(msg5);
+        .deposit(ethers.utils.parseEther("4000"), 0, algebraVaultAddress),
+    ).to.be.revertedWithCustomError(testVault, "ZeroAddress");
   });
 
   it("AlgebraVault - withdraw", async () => {
-    const msg1 = "AV.withdraw: to",
-      msg2 = "AV.withdraw: shares";
-
     // alice approves the AlgebraVault to transfer her tokens
     await token0.connect(alice).approve(algebraVault.address, largeTokenAmount);
     await token1.connect(alice).approve(algebraVault.address, largeTokenAmount);
@@ -407,16 +404,21 @@ describe("Input Validation Checks", () => {
     await token0.mint(alice.address, largeTokenAmount);
     await token1.mint(alice.address, largeTokenAmount);
 
+    // Increase time significantly to pass hysteresis check
+    await network.provider.send("evm_increaseTime", [7200]); // 2 hours
+    await network.provider.send("evm_mine", []);
+
     await algebraVault
       .connect(alice)
-      .deposit(ethers.utils.parseEther("4000"), ethers.utils.parseEther("4000"), alice.address);
+      .deposit(ethers.utils.parseEther("4000"), 0, alice.address);
 
     //check 'to' address
-    await expect(algebraVault.connect(alice).withdraw(ethers.utils.parseEther("4000"), NULL_ADDRESS)).to.be.revertedWith(
-      msg1,
+    await expect(algebraVault.connect(alice).withdraw(ethers.utils.parseEther("4000"), NULL_ADDRESS)).to.be.revertedWithCustomError(
+      algebraVault,
+      "ZeroAddress",
     );
     //check shares
-    await expect(algebraVault.connect(alice).withdraw(0, alice.address)).to.be.revertedWith(msg2);
+    await expect(algebraVault.connect(alice).withdraw(0, alice.address)).to.be.revertedWithCustomError(algebraVault, "ZeroValue");
   });
 
   it("AlgebraVault - rebalance", async () => {

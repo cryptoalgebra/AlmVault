@@ -315,7 +315,7 @@ describe("AlgebraVault General Functionality", () => {
         amountOutMinimum: ethers.utils.parseEther("0"),
         limitSqrtPrice: 0,
       },
-      { gasLimit: 100000000 }
+      { gasLimit: 30000000 }
     );
     await algebraVault
       .connect(alice)
@@ -382,7 +382,7 @@ describe("AlgebraVault General Functionality", () => {
         amountOutMinimum: ethers.utils.parseEther("0"),
         limitSqrtPrice: 0,
       },
-      { gasLimit: 100000000 }
+      { gasLimit: 30000000 }
     );
 
     await network.provider.send("evm_mine");
@@ -453,7 +453,7 @@ describe("AlgebraVault General Functionality", () => {
     //     amountOutMinimum: ethers.utils.parseEther("0"),
     //     limitSqrtPrice: 0,
     //   },
-    //   { gasLimit: 100000000 }
+    //   { gasLimit: 30000000 }
     // );
 
     await network.provider.send("evm_mine");
@@ -515,7 +515,7 @@ describe("AlgebraVault General Functionality", () => {
         amountOutMinimum: ethers.utils.parseEther("0"),
         limitSqrtPrice: 0,
       },
-      { gasLimit: 100000000 }
+      { gasLimit: 30000000 }
     );
     await network.provider.send("evm_mine");
     await network.provider.send("evm_increaseTime", [36000]);
@@ -556,7 +556,7 @@ describe("AlgebraVault General Functionality", () => {
         wallet.address,
         0,
         alice.address,
-        { value: ethers.utils.parseEther("1"), gasLimit: 100000000 }
+        { value: ethers.utils.parseEther("1"), gasLimit: 30000000 }
       );
     let alice_liq_balance = await algebraVault.balanceOf(alice.address);
     expect(alice_liq_balance).to.gt(0);
@@ -569,7 +569,7 @@ describe("AlgebraVault General Functionality", () => {
       alice.sendTransaction({
         to: depositGuard.address,
         value: ethers.utils.parseEther("1"),
-        gasLimit: 100000000,
+        gasLimit: 30000000,
       })
     ).to.be.reverted;
   });
@@ -832,7 +832,7 @@ describe("AlgebraVault General Functionality", () => {
         amountOutMinimum: ethers.utils.parseEther("0"),
         limitSqrtPrice: 0,
       },
-      { gasLimit: 100000000 }
+      { gasLimit: 30000000 }
     );
 
     await token1.mint(carol.address, giantTokenAmount);
@@ -848,7 +848,7 @@ describe("AlgebraVault General Functionality", () => {
         amountOutMinimum: ethers.utils.parseEther("0"),
         limitSqrtPrice: 0,
       },
-      { gasLimit: 100000000 }
+      { gasLimit: 30000000 }
     );
 
     
@@ -860,7 +860,6 @@ describe("AlgebraVault General Functionality", () => {
       .connect(alice)
       .withdraw(alice_liq_balance, alice.address);
 
-    console.log(fees);
   });
 
   it("Deposit from two accounts and Collect fees", async () => {
@@ -904,7 +903,7 @@ describe("AlgebraVault General Functionality", () => {
         amountOutMinimum: ethers.utils.parseEther("0"),
         limitSqrtPrice: 0,
       },
-      { gasLimit: 100000000 }
+      { gasLimit: 30000000 }
     );
     
     await algebraVault.connect(alice).collectFees();
@@ -1111,7 +1110,7 @@ describe("AlgebraVault General Functionality", () => {
         amountOutMinimum: ethers.utils.parseEther("0"),
         limitSqrtPrice: 0,
       },
-      { gasLimit: 100000000 }
+      { gasLimit: 30000000 }
     );
     
     
@@ -1154,7 +1153,7 @@ describe("AlgebraVault General Functionality", () => {
         amountOutMinimum: ethers.utils.parseEther("0"),
         limitSqrtPrice: 0,
       },
-      { gasLimit: 100000000 }
+      { gasLimit: 30000000 }
     );
     
     
@@ -1245,8 +1244,7 @@ describe("AlgebraVault General Functionality (allowed token1)", () => {
             depositGuardToken1,
         } = await loadFixture(algebraVaultTestFixture));
         
-        await algebraVaultFactory.connect(alice).setFeeRecipient(alice.address);
-        await algebraVaultFactory.connect(alice).setFeeRecipient(NULL_ADDRESS);
+        await algebraVaultFactory.setFeeRecipient(alice.address);
         await algebraVaultFactory.connect(wallet).setFeeRecipient(other.address);
 
         await factory.createPool(token0.address, token1.address, "0x");
@@ -1323,7 +1321,7 @@ describe("AlgebraVault General Functionality (allowed token1)", () => {
         wallet.address,
         0,
         alice.address,
-        { value: ethers.utils.parseEther("1"), gasLimit: 100000000 }
+        { value: ethers.utils.parseEther("1"), gasLimit: 30000000 }
       )).to.emit(depositGuardToken1, "DepositForwarded");
 
       await token0.mint(carol.address, giantTokenAmount);
@@ -1341,7 +1339,7 @@ describe("AlgebraVault General Functionality (allowed token1)", () => {
           amountOutMinimum: 0,
           limitSqrtPrice: 0,
         },
-        { gasLimit: 100000000 }
+        { gasLimit: 30000000 }
       );
       await router.connect(carol).exactInputSingle(
         {
@@ -1354,7 +1352,7 @@ describe("AlgebraVault General Functionality (allowed token1)", () => {
           amountOutMinimum: 0,
           limitSqrtPrice: 0,
         },
-        { gasLimit: 100000000 }
+        { gasLimit: 30000000 }
       );
 
       let alice_liq_balance = await algebraVault.balanceOf(alice.address);
