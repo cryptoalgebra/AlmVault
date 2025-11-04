@@ -1,4 +1,4 @@
-import { PairFlash } from "../contracts/mocks/TestFlashloan";
+import { PairFlash } from "../types/contracts/mocks/TestFlashloan.sol/PairFlash";
 import {
   IAlgebraFactory,
   IAlgebraPool,
@@ -19,10 +19,9 @@ import {
   getMinTick,
 } from "./shared/utilities";
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
-import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { expect } from "chai";
 import { ethers, network } from "hardhat";
-import "hardhat-tracer";
 
 const NULL_ADDRESS = "0x0000000000000000000000000000000000000000";
 const PERCENT_100 = "1000000000000000000";
@@ -33,22 +32,22 @@ const PERCENT_10 = "100000000000000000";
 
 const MIN_SHARES = 1000;
 
-const smallTokenAmount = ethers.utils.parseEther("1000");
-const largeTokenAmount = ethers.utils.parseEther("1000000");
-const veryLargeTokenAmount = ethers.utils.parseEther("10000000000");
-const giantTokenAmount = ethers.utils.parseEther("1000000000000");
+const smallTokenAmount = ethers.parseEther("1000");
+const largeTokenAmount = ethers.parseEther("1000000");
+const veryLargeTokenAmount = ethers.parseEther("10000000000");
+const giantTokenAmount = ethers.parseEther("1000000000000");
 
 describe("AlgebraVault General Functionality", () => {
-  let wallet: SignerWithAddress;
-  let alice: SignerWithAddress;
-  let bob: SignerWithAddress;
-  let carol: SignerWithAddress;
-  let other: SignerWithAddress;
-  let user0: SignerWithAddress;
-  let user1: SignerWithAddress;
-  let user2: SignerWithAddress;
-  let user3: SignerWithAddress;
-  let user4: SignerWithAddress;
+  let wallet: HardhatEthersSigner;
+  let alice: HardhatEthersSigner;
+  let bob: HardhatEthersSigner;
+  let carol: HardhatEthersSigner;
+  let other: HardhatEthersSigner;
+  let user0: HardhatEthersSigner;
+  let user1: HardhatEthersSigner;
+  let user2: HardhatEthersSigner;
+  let user3: HardhatEthersSigner;
+  let user4: HardhatEthersSigner;
 
   let factory: IAlgebraFactory;
   let router: ISwapRouter;
@@ -64,7 +63,7 @@ describe("AlgebraVault General Functionality", () => {
 
   before("create fixture loader", async () => {
     [wallet, alice, bob, carol, other, user0, user1, user2, user3, user4] =
-      await ethers.getSigners();
+      await (ethers as any).getSigners();
   });
 
   beforeEach("deploy contracts", async () => {
@@ -80,12 +79,12 @@ describe("AlgebraVault General Functionality", () => {
       depositGuard,
     } = await loadFixture(algebraVaultTestFixture));
    
-    await algebraVaultFactory.connect(wallet).setFeeRecipient(other.address);
+    await algebraVaultFactory.connect(wallet).setFeeRecipient(await other.getAddress());
 
-    await factory.createPool(token0.address, token1.address, "0x");
+    await factory.createPool(await token0.getAddress(), await token1.getAddress(), "0x");
     const poolAddress = await factory.poolByPair(
-      token0.address,
-      token1.address
+      await token0.getAddress(),
+      await token1.getAddress()
     );
     algebraPool = (await ethers.getContractAt(
       "IAlgebraPool",
@@ -95,25 +94,25 @@ describe("AlgebraVault General Functionality", () => {
 
     await algebraVaultFactory
       .connect(wallet)
-      .createAlgebraVault(token0.address, true, token1.address, false);
+      .createAlgebraVault(await token0.getAddress(), true, await token1.getAddress(), false);
 
     // adding extra liquidity into pool to make sure there's always
     // someone to swap with
-    await token0.mint(carol.address, giantTokenAmount);
-    await token1.mint(carol.address, giantTokenAmount);
+    await token0.mint(await carol.getAddress(), giantTokenAmount);
+    await token1.mint(await carol.getAddress(), giantTokenAmount);
 
     
 
-    await token0.connect(carol).approve(nft.address, veryLargeTokenAmount);
-    await token1.connect(carol).approve(nft.address, veryLargeTokenAmount);
+    await token0.connect(carol).approve(await nft.getAddress(), veryLargeTokenAmount);
+    await token1.connect(carol).approve(await nft.getAddress(), veryLargeTokenAmount);
 
     await nft.connect(carol).mint({
-      token0: token0.address,
-      token1: token1.address,
+      token0: await token0.getAddress(),
+      token1: await token1.getAddress(),
       deployer: NULL_ADDRESS,
       tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
       tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
-      recipient: carol.address,
+      recipient: await carol.getAddress(),
       amount0Desired: veryLargeTokenAmount,
       amount1Desired: veryLargeTokenAmount,
       amount0Min: 0,
@@ -124,9 +123,9 @@ describe("AlgebraVault General Functionality", () => {
     await network.provider.send("evm_increaseTime", [3600]);
 
     const vaultKey = await algebraVaultFactory.genKey(
-      wallet.address,
-      token0.address,
-      token1.address,
+      await wallet.getAddress(),
+      await token0.getAddress(),
+      await token1.getAddress(),
       true,
       false
     );
@@ -137,14 +136,14 @@ describe("AlgebraVault General Functionality", () => {
       "AlgebraVault",
       algebraVaultAddress
     )) as AlgebraVault;
-    await algebraVault.connect(wallet).setAffiliate(bob.address);
+    await algebraVault.connect(wallet).setAffiliate(await bob.getAddress());
     
 
     await algebraVault
       .connect(wallet)
       .setDepositMax(
-        ethers.utils.parseEther("100000"),
-        ethers.utils.parseEther("100000")
+        ethers.parseEther("100000"),
+        ethers.parseEther("100000")
       );
   });
 
@@ -158,228 +157,225 @@ describe("AlgebraVault General Functionality", () => {
 
   // Should be reverted because of zero amount
   it("deposit with zero amount", async () => {
-    await expect(algebraVault.connect(alice).deposit(0, 0, alice.address)).to.be
+    await expect(algebraVault.connect(alice).deposit(0, 0, await alice.getAddress())).to.be
       .reverted;
-    await expect(algebraVault.connect(alice).deposit(0, 0, alice.address)).to.be
+    await expect(algebraVault.connect(alice).deposit(0, 0, await alice.getAddress())).to.be
       .reverted;
   });
 
   // should be passed,
   // balance token0 in vault should be equal to smallTokenAmount
   it("deposit from only Alice account", async () => {
-    await token0.connect(alice).approve(algebraVault.address, largeTokenAmount);
-    await token1.connect(alice).approve(algebraVault.address, largeTokenAmount);
-    await token0.connect(alice).mint(alice.address, largeTokenAmount);
-    await token1.connect(alice).mint(alice.address, largeTokenAmount);
+    await token0.connect(alice).approve(await algebraVault.getAddress(), largeTokenAmount);
+    await token1.connect(alice).approve(await algebraVault.getAddress(), largeTokenAmount);
+    await token0.connect(alice).mint(await alice.getAddress(), largeTokenAmount);
+    await token1.connect(alice).mint(await alice.getAddress(), largeTokenAmount);
 
     await algebraVault
       .connect(alice)
-      .deposit(smallTokenAmount, 0, alice.address);
-    let token0vault = await token0.balanceOf(algebraVault.address);
-    let token1vault = await token1.balanceOf(algebraVault.address);
+      .deposit(smallTokenAmount, 0, await alice.getAddress());
+    let token0vault = await token0.balanceOf(await algebraVault.getAddress());
+    let token1vault = await token1.balanceOf(await algebraVault.getAddress());
     expect(token0vault).to.equal(smallTokenAmount);
     expect(token1vault).to.equal(0);
   });
 
   it("deposit and withdraw", async () => {
-    await token0.connect(alice).approve(algebraVault.address, largeTokenAmount);
-    await token1.connect(alice).approve(algebraVault.address, largeTokenAmount);
-    await token0.connect(alice).mint(alice.address, largeTokenAmount);
-    await token1.connect(alice).mint(alice.address, largeTokenAmount);
+    await token0.connect(alice).approve(await algebraVault.getAddress(), largeTokenAmount);
+    await token1.connect(alice).approve(await algebraVault.getAddress(), largeTokenAmount);
+    await token0.connect(alice).mint(await alice.getAddress(), largeTokenAmount);
+    await token1.connect(alice).mint(await alice.getAddress(), largeTokenAmount);
 
     await algebraVault
       .connect(alice)
-      .deposit(smallTokenAmount, 0, alice.address);
-    let alice_liq_balance = await algebraVault.balanceOf(alice.address);
+      .deposit(smallTokenAmount, 0, await alice.getAddress());
+    let alice_liq_balance = await algebraVault.balanceOf(await alice.getAddress());
     await algebraVault
       .connect(alice)
-      .withdraw(alice_liq_balance, alice.address);
-    let token0vault = await token0.balanceOf(algebraVault.address);
-    let token1vault = await token1.balanceOf(algebraVault.address);
+      .withdraw(alice_liq_balance, await alice.getAddress());
+    let token0vault = await token0.balanceOf(await algebraVault.getAddress());
+    let token1vault = await token1.balanceOf(await algebraVault.getAddress());
     expect(token0vault).to.equal(0);
     expect(token1vault).to.equal(0);
   });
 
-  //shuold be passed, amount
-  it("mulpile users deposit and withdraw", async () => {
+  // Should pass - multiple users deposit and withdraw
+  it("multiple users deposit and withdraw", async () => {
     // alice deposit
-    await token0.connect(alice).approve(algebraVault.address, largeTokenAmount);
-    await token1.connect(alice).approve(algebraVault.address, largeTokenAmount);
-    await token0.connect(alice).mint(alice.address, smallTokenAmount);
-    await token1.connect(alice).mint(alice.address, smallTokenAmount);
+    await token0.connect(alice).approve(await algebraVault.getAddress(), largeTokenAmount);
+    await token1.connect(alice).approve(await algebraVault.getAddress(), largeTokenAmount);
+    await token0.connect(alice).mint(await alice.getAddress(), smallTokenAmount);
+    await token1.connect(alice).mint(await alice.getAddress(), smallTokenAmount);
     await algebraVault
       .connect(alice)
-      .deposit(smallTokenAmount, 0, alice.address);
+      .deposit(smallTokenAmount, 0, await alice.getAddress());
 
     // bob deposit
-    await token0.connect(bob).approve(algebraVault.address, largeTokenAmount);
-    await token1.connect(bob).approve(algebraVault.address, largeTokenAmount);
-    await token0.connect(bob).mint(bob.address, smallTokenAmount);
-    await token1.connect(bob).mint(bob.address, smallTokenAmount);
-    await algebraVault.connect(bob).deposit(smallTokenAmount, 0, bob.address);
+    await token0.connect(bob).approve(await algebraVault.getAddress(), largeTokenAmount);
+    await token1.connect(bob).approve(await algebraVault.getAddress(), largeTokenAmount);
+    await token0.connect(bob).mint(await bob.getAddress(), smallTokenAmount);
+    await token1.connect(bob).mint(await bob.getAddress(), smallTokenAmount);
+    await algebraVault.connect(bob).deposit(smallTokenAmount, 0, await bob.getAddress());
 
     //actual balances after deposits
     let vault_balance_after_deposits = await algebraVault.getTotalAmounts();
-    
 
     //alice withdraw
-    let alice_liq_balance = await algebraVault.balanceOf(alice.address);
+    let alice_liq_balance = await algebraVault.balanceOf(await alice.getAddress());
     await algebraVault
       .connect(alice)
-      .withdraw(alice_liq_balance, alice.address);
-    let token0vault = await token0.balanceOf(algebraVault.address);
-    let token1vault = await token1.balanceOf(algebraVault.address);
+      .withdraw(alice_liq_balance, await alice.getAddress());
+    let token0vault = await token0.balanceOf(await algebraVault.getAddress());
+    let token1vault = await token1.balanceOf(await algebraVault.getAddress());
     
     expect(token0vault).to.equal(
-      vault_balance_after_deposits[0].sub(smallTokenAmount)
+      vault_balance_after_deposits[0] - smallTokenAmount
     );
 
     //bob withdraw
-    let bob_liq_balance = await algebraVault.balanceOf(bob.address);
-    await algebraVault.connect(bob).withdraw(bob_liq_balance, bob.address);
-    token0vault = await token0.balanceOf(algebraVault.address);
-    token1vault = await token1.balanceOf(algebraVault.address);
+    let bob_liq_balance = await algebraVault.balanceOf(await bob.getAddress());
+    await algebraVault.connect(bob).withdraw(bob_liq_balance, await bob.getAddress());
+    token0vault = await token0.balanceOf(await algebraVault.getAddress());
+    token1vault = await token1.balanceOf(await algebraVault.getAddress());
     expect(token0vault).to.equal(0);
     expect(token1vault).to.equal(0);
   });
 
   it("multiple users deposit with different amounts", async () => {
-    let alice_deposit_amount = ethers.utils.parseEther("1000");
-    let bob_deposit_amount = ethers.utils.parseEther("2000");
-    let carol_deposit_amount = ethers.utils.parseEther("4000");
+    let alice_deposit_amount = ethers.parseEther("1000");
+    let bob_deposit_amount = ethers.parseEther("2000");
+    let carol_deposit_amount = ethers.parseEther("4000");
 
     //alice deposit
-    await token0.connect(alice).approve(algebraVault.address, largeTokenAmount);
-    await token1.connect(alice).approve(algebraVault.address, largeTokenAmount);
-    await token0.connect(alice).mint(alice.address, alice_deposit_amount);
-    await token1.connect(alice).mint(alice.address, alice_deposit_amount);
+    await token0.connect(alice).approve(await algebraVault.getAddress(), largeTokenAmount);
+    await token1.connect(alice).approve(await algebraVault.getAddress(), largeTokenAmount);
+    await token0.connect(alice).mint(await alice.getAddress(), alice_deposit_amount);
+    await token1.connect(alice).mint(await alice.getAddress(), alice_deposit_amount);
     await algebraVault
       .connect(alice)
-      .deposit(alice_deposit_amount, 0, alice.address);
+      .deposit(alice_deposit_amount, 0, await alice.getAddress());
     //bob deposit
-    await token0.connect(bob).approve(algebraVault.address, largeTokenAmount);
-    await token1.connect(bob).approve(algebraVault.address, largeTokenAmount);
-    await token0.connect(bob).mint(bob.address, bob_deposit_amount);
-    await token1.connect(bob).mint(bob.address, bob_deposit_amount);
-    await algebraVault.connect(bob).deposit(bob_deposit_amount, 0, bob.address);
+    await token0.connect(bob).approve(await algebraVault.getAddress(), largeTokenAmount);
+    await token1.connect(bob).approve(await algebraVault.getAddress(), largeTokenAmount);
+    await token0.connect(bob).mint(await bob.getAddress(), bob_deposit_amount);
+    await token1.connect(bob).mint(await bob.getAddress(), bob_deposit_amount);
+    await algebraVault.connect(bob).deposit(bob_deposit_amount, 0, await bob.getAddress());
 
     //carol deposit
-    await token0.connect(carol).approve(algebraVault.address, largeTokenAmount);
-    await token1.connect(carol).approve(algebraVault.address, largeTokenAmount);
-    await token0.connect(carol).mint(carol.address, carol_deposit_amount);
-    await token1.connect(carol).mint(carol.address, carol_deposit_amount);
+    await token0.connect(carol).approve(await algebraVault.getAddress(), largeTokenAmount);
+    await token1.connect(carol).approve(await algebraVault.getAddress(), largeTokenAmount);
+    await token0.connect(carol).mint(await carol.getAddress(), carol_deposit_amount);
+    await token1.connect(carol).mint(await carol.getAddress(), carol_deposit_amount);
     await algebraVault
       .connect(carol)
-      .deposit(carol_deposit_amount, 0, carol.address);
+      .deposit(carol_deposit_amount, 0, await carol.getAddress());
 
     //actual balances after deposits
     let vault_balance_after_deposits = await algebraVault.getTotalAmounts();
     expect(vault_balance_after_deposits[0]).to.equal(
-      alice_deposit_amount.add(bob_deposit_amount).add(carol_deposit_amount)
+      alice_deposit_amount + bob_deposit_amount + carol_deposit_amount
     );
   });
 
-  //should be reverted
-  //alice withdraw amount greater than her deposited
+  // Should be reverted - alice tries to withdraw more than she deposited
   it("alice withdraw amount greater than her deposited", async () => {
-    await token0.connect(alice).approve(algebraVault.address, largeTokenAmount);
-    await token1.connect(alice).approve(algebraVault.address, largeTokenAmount);
-    await token0.connect(alice).mint(alice.address, smallTokenAmount);
-    await token1.connect(alice).mint(alice.address, smallTokenAmount);
+    await token0.connect(alice).approve(await algebraVault.getAddress(), largeTokenAmount);
+    await token1.connect(alice).approve(await algebraVault.getAddress(), largeTokenAmount);
+    await token0.connect(alice).mint(await alice.getAddress(), smallTokenAmount);
+    await token1.connect(alice).mint(await alice.getAddress(), smallTokenAmount);
     await algebraVault
       .connect(alice)
-      .deposit(smallTokenAmount, 0, alice.address);
-    let alice_liq_balance = await algebraVault.balanceOf(alice.address);
+      .deposit(smallTokenAmount, 0, await alice.getAddress());
+    let alice_liq_balance = await algebraVault.balanceOf(await alice.getAddress());
     await expect(
       algebraVault
         .connect(alice)
-        .withdraw(alice_liq_balance.add(1), alice.address)
+        .withdraw(alice_liq_balance + 1n, await alice.getAddress())
     ).to.be.reverted;
   });
 
   it("swap and deposit in same block", async () => {
-    let amount_for_swap = ethers.utils.parseEther("1000");
-    await token0.connect(alice).mint(alice.address, smallTokenAmount);
-    await token0.connect(alice).approve(algebraVault.address, largeTokenAmount);
-    await token1.connect(carol).approve(router.address, veryLargeTokenAmount);
-    await token1.connect(carol).mint(carol.address, amount_for_swap);
+    let amount_for_swap = ethers.parseEther("1000");
+    await token0.connect(alice).mint(await alice.getAddress(), smallTokenAmount);
+    await token0.connect(alice).approve(await algebraVault.getAddress(), largeTokenAmount);
+    await token1.connect(carol).approve(await router.getAddress(), veryLargeTokenAmount);
+    await token1.connect(carol).mint(await carol.getAddress(), amount_for_swap);
     await network.provider.send("evm_setAutomine", [false]);
     await router.connect(carol).exactInputSingle(
       {
-        tokenIn: token1.address,
-        tokenOut: token0.address,
-        recipient: alice.address,
+        tokenIn: await token1.getAddress(),
+        tokenOut: await token0.getAddress(),
+        recipient: await alice.getAddress(),
         deployer: NULL_ADDRESS,
         deadline: 2000000000, // Wed May 18 2033 03:33:20 GMT+0000
         amountIn: amount_for_swap,
-        amountOutMinimum: ethers.utils.parseEther("0"),
+        amountOutMinimum: ethers.parseEther("0"),
         limitSqrtPrice: 0,
       },
       { gasLimit: 30000000 }
     );
     await algebraVault
       .connect(alice)
-      .deposit(smallTokenAmount, 0, alice.address);
+      .deposit(smallTokenAmount, 0, await alice.getAddress());
     await network.provider.send("evm_mine");
     await network.provider.send("evm_setAutomine", [true]);
   });
 
-  //should be reverted
-  //alice withdraw amount greater than her deposited
-  it("multiply users deposit and alice withdraw amount greater than her deposited", async () => {
-    let alice_deposit_amount = ethers.utils.parseEther("1000");
-    let bob_deposit_amount = ethers.utils.parseEther("2000");
+  // Should be reverted - multiple users deposit and alice tries to withdraw more than she deposited
+  it("multiple users deposit and alice withdraw amount greater than her deposited", async () => {
+    let alice_deposit_amount = ethers.parseEther("1000");
+    let bob_deposit_amount = ethers.parseEther("2000");
     //alice deposit
-    await token0.connect(alice).approve(algebraVault.address, largeTokenAmount);
-    await token1.connect(alice).approve(algebraVault.address, largeTokenAmount);
-    await token0.connect(alice).mint(alice.address, alice_deposit_amount);
-    await token1.connect(alice).mint(alice.address, alice_deposit_amount);
+    await token0.connect(alice).approve(await algebraVault.getAddress(), largeTokenAmount);
+    await token1.connect(alice).approve(await algebraVault.getAddress(), largeTokenAmount);
+    await token0.connect(alice).mint(await alice.getAddress(), alice_deposit_amount);
+    await token1.connect(alice).mint(await alice.getAddress(), alice_deposit_amount);
     await algebraVault
       .connect(alice)
-      .deposit(alice_deposit_amount, 0, alice.address);
+      .deposit(alice_deposit_amount, 0, await alice.getAddress());
     //bob deposit
-    await token0.connect(bob).approve(algebraVault.address, largeTokenAmount);
-    await token1.connect(bob).approve(algebraVault.address, largeTokenAmount);
-    await token0.connect(bob).mint(bob.address, bob_deposit_amount);
-    await token1.connect(bob).mint(bob.address, bob_deposit_amount);
-    await algebraVault.connect(bob).deposit(bob_deposit_amount, 0, bob.address);
+    await token0.connect(bob).approve(await algebraVault.getAddress(), largeTokenAmount);
+    await token1.connect(bob).approve(await algebraVault.getAddress(), largeTokenAmount);
+    await token0.connect(bob).mint(await bob.getAddress(), bob_deposit_amount);
+    await token1.connect(bob).mint(await bob.getAddress(), bob_deposit_amount);
+    await algebraVault.connect(bob).deposit(bob_deposit_amount, 0, await bob.getAddress());
 
     //alice withdraw
-    let alice_liq_balance = await algebraVault.balanceOf(alice.address);
+    let alice_liq_balance = await algebraVault.balanceOf(await alice.getAddress());
     await expect(
       algebraVault
         .connect(alice)
-        .withdraw(alice_liq_balance.add(1), alice.address)
+        .withdraw(alice_liq_balance + 1n, await alice.getAddress())
     ).to.be.reverted;
   });
 
   it("rebalance after deposited amount", async () => {
-    let amount_for_swap = ethers.utils.parseEther("10000000");
-    let amount_for_deposit = ethers.utils.parseEther("10000");
+    let amount_for_swap = ethers.parseEther("10000000");
+    let amount_for_deposit = ethers.parseEther("10000");
 
-    await token0.connect(alice).approve(algebraVault.address, largeTokenAmount);
-    await token1.connect(alice).approve(algebraVault.address, largeTokenAmount);
-    await token0.connect(alice).mint(alice.address, largeTokenAmount);
-    await token1.connect(alice).mint(alice.address, largeTokenAmount);
+    await token0.connect(alice).approve(await algebraVault.getAddress(), largeTokenAmount);
+    await token1.connect(alice).approve(await algebraVault.getAddress(), largeTokenAmount);
+    await token0.connect(alice).mint(await alice.getAddress(), largeTokenAmount);
+    await token1.connect(alice).mint(await alice.getAddress(), largeTokenAmount);
     await algebraVault
       .connect(alice)
-      .deposit(amount_for_deposit, 0, alice.address);
+      .deposit(amount_for_deposit, 0, await alice.getAddress());
     await network.provider.send("evm_mine");
     await network.provider.send("evm_increaseTime", [3600]);
 
-    await token0.connect(carol).approve(router.address, veryLargeTokenAmount);
-    await token1.connect(carol).approve(router.address, veryLargeTokenAmount);
-    await token0.connect(carol).mint(carol.address, amount_for_swap);
-    await token1.connect(carol).mint(carol.address, amount_for_swap);
+    await token0.connect(carol).approve(await router.getAddress(), veryLargeTokenAmount);
+    await token1.connect(carol).approve(await router.getAddress(), veryLargeTokenAmount);
+    await token0.connect(carol).mint(await carol.getAddress(), amount_for_swap);
+    await token1.connect(carol).mint(await carol.getAddress(), amount_for_swap);
     await router.connect(carol).exactInputSingle(
       {
-        tokenIn: token1.address,
-        tokenOut: token0.address,
-        recipient: alice.address,
+        tokenIn: await token1.getAddress(),
+        tokenOut: await token0.getAddress(),
+        recipient: await alice.getAddress(),
         deployer: NULL_ADDRESS,
         deadline: 2000000000, // Wed May 18 2033 03:33:20 GMT+0000
         amountIn: amount_for_swap,
-        amountOutMinimum: ethers.utils.parseEther("0"),
+        amountOutMinimum: ethers.parseEther("0"),
         limitSqrtPrice: 0,
       },
       { gasLimit: 30000000 }
@@ -389,94 +385,62 @@ describe("AlgebraVault General Functionality", () => {
     await network.provider.send("evm_increaseTime", [36000]);
     await algebraVault
       .connect(alice)
-      .deposit(amount_for_deposit, 0, alice.address);
+      .deposit(amount_for_deposit, 0, await alice.getAddress());
     await network.provider.send("evm_mine");
     await network.provider.send("evm_increaseTime", [36000]);
 
-    //await expect(algebraVault.rebalance(-1800, 1800, -600, 0, 0))
-    //        .to.emit(algebraVault, "Rebalance");
+    await algebraVault.rebalance(1800, 3600, -600, 600, 0);
 
-    algebraVault.rebalance(1800, 3600, -600, 600, 0);
-
-    let token0vault = await token0.balanceOf(algebraVault.address);
-    let token1vault = await token1.balanceOf(algebraVault.address);
-    let basePositionId = await algebraVault.basePositionId();
-    let limitPositionId = await algebraVault.limitPositionId();
-    
+    let token0vault = await token0.balanceOf(await algebraVault.getAddress());
+    let token1vault = await token1.balanceOf(await algebraVault.getAddress());
 
     expect(token0vault).to.equal(0);
     expect(token1vault).to.equal(0);
 
-    // let limitPositionBefore = await algebraVault.getLimitPosition();
-    // console.log(limitPositionBefore);
-    // let alice_liq_balance = await algebraVault.balanceOf(alice.address);
-    // await (algebraVault.connect(alice).withdraw(alice_liq_balance, alice.address));
-    // let token0vault = await token0.balanceOf(algebraVault.address);
-    // let token1vault = await token1.balanceOf(algebraVault.address);
-    // expect(token0vault).to.equal(0);
-    // expect(token1vault).to.equal(0);
-
     let basePosition = await algebraVault.getBasePosition();
     let limitPosition = await algebraVault.getLimitPosition();
-    
-    expect(basePosition[0]).to.be.gt(ethers.utils.parseEther("0"));
 
+    expect(basePosition[0]).to.be.gt(ethers.parseEther("0"));
     expect(limitPosition[0]).to.be.equal(0);
   });
 
   it("withdraw after deposit and rebalance", async () => {
-    let amount_for_swap = ethers.utils.parseEther("10000000");
-    let amount_for_deposit = ethers.utils.parseEther("10000");
+    let amount_for_swap = ethers.parseEther("10000000");
+    let amount_for_deposit = ethers.parseEther("10000");
 
-    await token0.connect(alice).approve(algebraVault.address, largeTokenAmount);
-    await token1.connect(alice).approve(algebraVault.address, largeTokenAmount);
-    await token0.connect(alice).mint(alice.address, largeTokenAmount);
-    await token1.connect(alice).mint(alice.address, largeTokenAmount);
+    await token0.connect(alice).approve(await algebraVault.getAddress(), largeTokenAmount);
+    await token1.connect(alice).approve(await algebraVault.getAddress(), largeTokenAmount);
+    await token0.connect(alice).mint(await alice.getAddress(), largeTokenAmount);
+    await token1.connect(alice).mint(await alice.getAddress(), largeTokenAmount);
     await algebraVault
       .connect(alice)
-      .deposit(amount_for_deposit, 0, alice.address);
+      .deposit(amount_for_deposit, 0, await alice.getAddress());
     await network.provider.send("evm_mine");
     await network.provider.send("evm_increaseTime", [3600]);
 
-    await token0.connect(carol).approve(router.address, veryLargeTokenAmount);
-    await token1.connect(carol).approve(router.address, veryLargeTokenAmount);
-    await token0.connect(carol).mint(carol.address, amount_for_swap);
-    await token1.connect(carol).mint(carol.address, amount_for_swap);
-    // await router.connect(carol).exactInputSingle(
-    //   {
-    //     tokenIn: token1.address,
-    //     tokenOut: token0.address,
-    //     recipient: alice.address,
-    //     deployer: NULL_ADDRESS,
-    //     deadline: 2000000000, // Wed May 18 2033 03:33:20 GMT+0000
-    //     amountIn: amount_for_swap,
-    //     amountOutMinimum: ethers.utils.parseEther("0"),
-    //     limitSqrtPrice: 0,
-    //   },
-    //   { gasLimit: 30000000 }
-    // );
+    await token0.connect(carol).approve(await router.getAddress(), veryLargeTokenAmount);
+    await token1.connect(carol).approve(await router.getAddress(), veryLargeTokenAmount);
+    await token0.connect(carol).mint(await carol.getAddress(), amount_for_swap);
+    await token1.connect(carol).mint(await carol.getAddress(), amount_for_swap);
 
     await network.provider.send("evm_mine");
     await network.provider.send("evm_increaseTime", [36000]);
     await algebraVault
       .connect(alice)
-      .deposit(amount_for_deposit, 0, alice.address);
+      .deposit(amount_for_deposit, 0, await alice.getAddress());
     await network.provider.send("evm_mine");
     await network.provider.send("evm_increaseTime", [36000]);
 
-    //await expect(algebraVault.rebalance(-1800, 1800, -600, 0, 0))
-    //        .to.emit(algebraVault, "Rebalance");
-
-    algebraVault.rebalance(1800, 3600, -600, 600, 0);
+    await algebraVault.rebalance(1800, 3600, -600, 600, 0);
     await network.provider.send("evm_mine");
     await network.provider.send("evm_increaseTime", [36000]);
 
-    let alice_liq_balance = await algebraVault.balanceOf(alice.address);
+    let alice_liq_balance = await algebraVault.balanceOf(await alice.getAddress());
     await expect(
-      algebraVault.connect(alice).withdraw(alice_liq_balance, alice.address)
+      algebraVault.connect(alice).withdraw(alice_liq_balance, await alice.getAddress())
     ).to.emit(algebraVault, "Withdraw");
-    let token0vault = await token0.balanceOf(algebraVault.address);
-    let token1vault = await token1.balanceOf(algebraVault.address);
+    let token0vault = await token0.balanceOf(await algebraVault.getAddress());
+    let token1vault = await token1.balanceOf(await algebraVault.getAddress());
     expect(token0vault).to.equal(0);
     expect(token1vault).to.equal(0);
   });
@@ -487,32 +451,32 @@ describe("AlgebraVault General Functionality", () => {
   //3. swap
   //4. withdraw
   it("withdraw after deposit and rebalance with swap", async () => {
-    let amount_for_swap = ethers.utils.parseEther("10000000");
-    let amount_for_deposit = ethers.utils.parseEther("10000");
+    let amount_for_swap = ethers.parseEther("10000000");
+    let amount_for_deposit = ethers.parseEther("10000");
 
-    await token0.connect(alice).approve(algebraVault.address, largeTokenAmount);
-    await token1.connect(alice).approve(algebraVault.address, largeTokenAmount);
-    await token0.connect(alice).mint(alice.address, largeTokenAmount);
-    await token1.connect(alice).mint(alice.address, largeTokenAmount);
+    await token0.connect(alice).approve(await algebraVault.getAddress(), largeTokenAmount);
+    await token1.connect(alice).approve(await algebraVault.getAddress(), largeTokenAmount);
+    await token0.connect(alice).mint(await alice.getAddress(), largeTokenAmount);
+    await token1.connect(alice).mint(await alice.getAddress(), largeTokenAmount);
     await algebraVault
       .connect(alice)
-      .deposit(amount_for_deposit, 0, alice.address);
+      .deposit(amount_for_deposit, 0, await alice.getAddress());
     await network.provider.send("evm_mine");
     await network.provider.send("evm_increaseTime", [3600]);
 
-    await token0.connect(carol).approve(router.address, veryLargeTokenAmount);
-    await token1.connect(carol).approve(router.address, veryLargeTokenAmount);
-    await token0.connect(carol).mint(carol.address, amount_for_swap);
-    await token1.connect(carol).mint(carol.address, amount_for_swap);
+    await token0.connect(carol).approve(await router.getAddress(), veryLargeTokenAmount);
+    await token1.connect(carol).approve(await router.getAddress(), veryLargeTokenAmount);
+    await token0.connect(carol).mint(await carol.getAddress(), amount_for_swap);
+    await token1.connect(carol).mint(await carol.getAddress(), amount_for_swap);
     await router.connect(carol).exactInputSingle(
       {
-        tokenIn: token1.address,
-        tokenOut: token0.address,
-        recipient: alice.address,
+        tokenIn: await token1.getAddress(),
+        tokenOut: await token0.getAddress(),
+        recipient: await alice.getAddress(),
         deployer: NULL_ADDRESS,
         deadline: 2000000000, // Wed May 18 2033 03:33:20 GMT+0000
         amountIn: amount_for_swap,
-        amountOutMinimum: ethers.utils.parseEther("0"),
+        amountOutMinimum: ethers.parseEther("0"),
         limitSqrtPrice: 0,
       },
       { gasLimit: 30000000 }
@@ -520,30 +484,30 @@ describe("AlgebraVault General Functionality", () => {
     await network.provider.send("evm_mine");
     await network.provider.send("evm_increaseTime", [36000]);
 
-    let alice_liq_balance = await algebraVault.balanceOf(alice.address);
+    let alice_liq_balance = await algebraVault.balanceOf(await alice.getAddress());
     await expect(
-      algebraVault.connect(alice).withdraw(alice_liq_balance, alice.address)
+      algebraVault.connect(alice).withdraw(alice_liq_balance, await alice.getAddress())
     ).to.emit(algebraVault, "Withdraw");
-    let token0vault = await token0.balanceOf(algebraVault.address);
-    let token1vault = await token1.balanceOf(algebraVault.address);
+    let token0vault = await token0.balanceOf(await algebraVault.getAddress());
+    let token1vault = await token1.balanceOf(await algebraVault.getAddress());
     expect(token0vault).to.equal(0);
     expect(token1vault).to.equal(0);
   });
 
   it("deposit with deposit guard", async () => {
-    await token0.connect(alice).approve(depositGuard.address, largeTokenAmount);
-    await token1.connect(alice).approve(depositGuard.address, largeTokenAmount);
-    await token0.connect(alice).mint(alice.address, largeTokenAmount);
-    await token1.connect(alice).mint(alice.address, largeTokenAmount);
+    await token0.connect(alice).approve(await depositGuard.getAddress(), largeTokenAmount);
+    await token1.connect(alice).approve(await depositGuard.getAddress(), largeTokenAmount);
+    await token0.connect(alice).mint(await alice.getAddress(), largeTokenAmount);
+    await token1.connect(alice).mint(await alice.getAddress(), largeTokenAmount);
     await depositGuard
       .connect(alice)
       .forwardDepositToAlgebraVault(
-        algebraVault.address,
-        wallet.address,
-        token0.address,
+        await algebraVault.getAddress(),
+        await wallet.getAddress(),
+        await token0.getAddress(),
         smallTokenAmount,
         0,
-        alice.address
+        await alice.getAddress()
       );
   });
 
@@ -552,13 +516,13 @@ describe("AlgebraVault General Functionality", () => {
     await depositGuard
       .connect(alice)
       .forwardNativeDepositToAlgebraVault(
-        algebraVault.address,
-        wallet.address,
+        await algebraVault.getAddress(),
+        await wallet.getAddress(),
         0,
-        alice.address,
-        { value: ethers.utils.parseEther("1"), gasLimit: 30000000 }
+        await alice.getAddress(),
+        { value: ethers.parseEther("1"), gasLimit: 30000000 }
       );
-    let alice_liq_balance = await algebraVault.balanceOf(alice.address);
+    let alice_liq_balance = await algebraVault.balanceOf(await alice.getAddress());
     expect(alice_liq_balance).to.gt(0);
   });
 
@@ -567,41 +531,41 @@ describe("AlgebraVault General Functionality", () => {
   it("native deposit with deposit guard", async () => {
     await expect(
       alice.sendTransaction({
-        to: depositGuard.address,
-        value: ethers.utils.parseEther("1"),
+        to: await depositGuard.getAddress(),
+        value: ethers.parseEther("1"),
         gasLimit: 30000000,
       })
     ).to.be.reverted;
   });
 
   it("deposit guard -- forward withdraw from algebra vault", async () => {
-    await token0.connect(alice).approve(depositGuard.address, largeTokenAmount);
-    await token0.connect(alice).mint(alice.address, largeTokenAmount);
+    await token0.connect(alice).approve(await depositGuard.getAddress(), largeTokenAmount);
+    await token0.connect(alice).mint(await alice.getAddress(), largeTokenAmount);
     await depositGuard
       .connect(alice)
       .forwardDepositToAlgebraVault(
-        algebraVault.address,
-        wallet.address,
-        token0.address,
+        await algebraVault.getAddress(),
+        await wallet.getAddress(),
+        await token0.getAddress(),
         smallTokenAmount,
         0,
-        alice.address
+        await alice.getAddress()
       );
-    let alice_liq_balance = await algebraVault.balanceOf(alice.address);
+    let alice_liq_balance = await algebraVault.balanceOf(await alice.getAddress());
     await algebraVault
       .connect(alice)
-      .approve(depositGuard.address, alice_liq_balance);
+      .approve(await depositGuard.getAddress(), alice_liq_balance);
     await depositGuard
       .connect(alice)
       .forwardWithdrawFromAlgebraVault(
-        algebraVault.address,
-        wallet.address,
+        await algebraVault.getAddress(),
+        await wallet.getAddress(),
         alice_liq_balance,
-        alice.address,
+        await alice.getAddress(),
         0,
         0
       );
-    alice_liq_balance = await algebraVault.balanceOf(alice.address);
+    alice_liq_balance = await algebraVault.balanceOf(await alice.getAddress());
     expect(alice_liq_balance).to.equal(0);
   });
 
@@ -609,30 +573,30 @@ describe("AlgebraVault General Functionality", () => {
     await depositGuard
       .connect(alice)
       .forwardNativeDepositToAlgebraVault(
-        algebraVault.address,
-        wallet.address,
+        await algebraVault.getAddress(),
+        await wallet.getAddress(),
         0,
-        alice.address,
-        { value: ethers.utils.parseEther("1") }
+        await alice.getAddress(),
+        { value: ethers.parseEther("1") }
       );
-    let alice_liq_balance = await algebraVault.balanceOf(alice.address);
+    let alice_liq_balance = await algebraVault.balanceOf(await alice.getAddress());
     expect(alice_liq_balance).to.be.gt(0);
     await algebraVault
       .connect(alice)
-      .approve(depositGuard.address, alice_liq_balance);
+      .approve(await depositGuard.getAddress(), alice_liq_balance);
 
     await depositGuard
       .connect(alice)
       .forwardNativeWithdrawFromAlgebraVault(
-        algebraVault.address,
-        wallet.address,
+        await algebraVault.getAddress(),
+        await wallet.getAddress(),
         alice_liq_balance,
-        alice.address,
+        await alice.getAddress(),
         0,
         0
       );
 
-    alice_liq_balance = await algebraVault.balanceOf(alice.address);
+    alice_liq_balance = await algebraVault.balanceOf(await alice.getAddress());
 
     expect(alice_liq_balance).to.equal(0);
   });
@@ -641,87 +605,87 @@ describe("AlgebraVault General Functionality", () => {
     await depositGuard
       .connect(alice)
       .forwardNativeDepositToAlgebraVault(
-        algebraVault.address,
-        wallet.address,
+        await algebraVault.getAddress(),
+        await wallet.getAddress(),
         0,
-        alice.address,
-        { value: ethers.utils.parseEther("1") }
+        await alice.getAddress(),
+        { value: ethers.parseEther("1") }
       );
-    let alice_liq_balance = await algebraVault.balanceOf(alice.address);
+    let alice_liq_balance = await algebraVault.balanceOf(await alice.getAddress());
 
-    algebraVault.rebalance(1800, 3600, -600, 600, 0);
+    await algebraVault.rebalance(1800, 3600, -600, 600, 0);
     await algebraVault
       .connect(alice)
-      .approve(depositGuard.address, alice_liq_balance);
+      .approve(await depositGuard.getAddress(), alice_liq_balance);
     await expect(
       depositGuard
         .connect(alice)
         .forwardNativeWithdrawFromAlgebraVault(
-          algebraVault.address,
-          wallet.address,
+          await algebraVault.getAddress(),
+          await wallet.getAddress(),
           alice_liq_balance,
-          alice.address,
+          await alice.getAddress(),
           0,
           0
         )
     ).to.emit(token0, "Withdraw");
-    alice_liq_balance = await algebraVault.balanceOf(alice.address);
+    alice_liq_balance = await algebraVault.balanceOf(await alice.getAddress());
     expect(alice_liq_balance).to.equal(0);
   });
 
   it("Deposit guard - deposit token if this token not allowed", async () => {
-    await token1.mint(alice.address, smallTokenAmount);
-    await token1.connect(alice).approve(depositGuard.address, smallTokenAmount);
+    await token1.mint(await alice.getAddress(), smallTokenAmount);
+    await token1.connect(alice).approve(await depositGuard.getAddress(), smallTokenAmount);
     await expect(
       depositGuard
         .connect(alice)
         .forwardDepositToAlgebraVault(
-          algebraVault.address,
-          wallet.address,
-          token1.address,
+          await algebraVault.getAddress(),
+          await wallet.getAddress(),
+          await token1.getAddress(),
           smallTokenAmount,
           0,
-          alice.address
+          await alice.getAddress()
         )
     ).to.be.reverted;
   });
 
   it("DepositGuard - deposit another token", async () => {
-    await token2.mint(alice.address, smallTokenAmount);
-    await token2.connect(alice).approve(depositGuard.address, smallTokenAmount);
+    await token2.mint(await alice.getAddress(), smallTokenAmount);
+    await token2.connect(alice).approve(await depositGuard.getAddress(), smallTokenAmount);
     await expect(
       depositGuard
         .connect(alice)
         .forwardDepositToAlgebraVault(
-          algebraVault.address,
-          wallet.address,
-          token2.address,
+          await algebraVault.getAddress(),
+          await wallet.getAddress(),
+          await token2.getAddress(),
           smallTokenAmount,
           0,
-          alice.address
+          await alice.getAddress()
         )
     ).to.be.revertedWith("Invalid token");
   });
 
   it("deposit after set DepositMax==0", async () => {
     await algebraVault.connect(wallet).setDepositMax(0, 0);
-    await token0.connect(alice).mint(alice.address, largeTokenAmount);
-    await token0.connect(alice).approve(algebraVault.address, largeTokenAmount);
+    await token0.connect(alice).mint(await alice.getAddress(), largeTokenAmount);
+    await token0.connect(alice).approve(await algebraVault.getAddress(), largeTokenAmount);
     await expect(
-      algebraVault.connect(alice).deposit(smallTokenAmount, 0, alice.address)
+      algebraVault.connect(alice).deposit(smallTokenAmount, 0, await alice.getAddress())
     ).to.be.reverted;
 
-    await token0.connect(alice).approve(depositGuard.address, largeTokenAmount);
+    await token0.connect(alice).approve(await depositGuard.getAddress(), largeTokenAmount);
     await expect(
       depositGuard
         .connect(alice)
         .forwardDepositToAlgebraVault(
-          algebraVault.address,
-          wallet.address,
-          token0.address,
+          await algebraVault.getAddress(),
+          await wallet.getAddress(),
+          await token0.getAddress(),
           smallTokenAmount,
           0,
-          alice.address
+          await alice.getAddress()
         )
     ).to.be.reverted;
 
@@ -729,11 +693,11 @@ describe("AlgebraVault General Functionality", () => {
       depositGuard
         .connect(alice)
         .forwardNativeDepositToAlgebraVault(
-          algebraVault.address,
-          wallet.address,
+          await algebraVault.getAddress(),
+          await wallet.getAddress(),
           0,
-          alice.address,
-          { value: ethers.utils.parseEther("1") }
+          await alice.getAddress(),
+          { value: ethers.parseEther("1") }
         )
     ).to.be.reverted;
   });
@@ -744,32 +708,32 @@ describe("AlgebraVault General Functionality", () => {
     const poolDeployer = await factory.poolDeployer();
     const pairFlashFactory = await ethers.getContractFactory("PairFlash");
     const pairFlash = (await pairFlashFactory.deploy(
-      factory.address,
+      await factory.getAddress(),
       poolDeployer,
-      algebraVault.address // используем factory как poolDeployer для простоты
+      await algebraVault.getAddress() // используем factory как poolDeployer для простоты
     )) as PairFlash;
 
-    await token0.connect(alice).approve(depositGuard.address, largeTokenAmount);
-    await token1.connect(alice).approve(depositGuard.address, largeTokenAmount);
-    await token0.connect(alice).mint(alice.address, largeTokenAmount);
-    await token1.connect(alice).mint(alice.address, largeTokenAmount);
-    await token0.connect(alice).mint(pairFlash.address, largeTokenAmount);
-    await token1.connect(alice).mint(pairFlash.address, largeTokenAmount);
-    const flashAmount0 = ethers.utils.parseEther("0.1");
-    const flashAmount1 = ethers.utils.parseEther("0.1");
+    await token0.connect(alice).approve(await depositGuard.getAddress(), largeTokenAmount);
+    await token1.connect(alice).approve(await depositGuard.getAddress(), largeTokenAmount);
+    await token0.connect(alice).mint(await alice.getAddress(), largeTokenAmount);
+    await token1.connect(alice).mint(await alice.getAddress(), largeTokenAmount);
+    await token0.connect(alice).mint(await pairFlash.getAddress(), largeTokenAmount);
+    await token1.connect(alice).mint(await pairFlash.getAddress(), largeTokenAmount);
+    const flashAmount0 = ethers.parseEther("0.1");
+    const flashAmount1 = ethers.parseEther("0.1");
     const computedPool = await factory.computePoolAddress(
-      token0.address,
-      token1.address
+      await token0.getAddress(),
+      await token1.getAddress()
     );
 
-    const pool = await pairFlash.getPool(token0.address, token1.address);
+    const pool = await pairFlash.getPool(await token0.getAddress(), await token1.getAddress());
     
 
     
     await expect(
       pairFlash.connect(alice).initFlash({
-        token0: token0.address,
-        token1: token1.address,
+        token0: await token0.getAddress(),
+        token1: await token1.getAddress(),
         deployer: poolDeployer,
         amount0: flashAmount0,
         amount1: flashAmount1,
@@ -778,300 +742,297 @@ describe("AlgebraVault General Functionality", () => {
   });
 
   it("Withdraw to vault address", async () => {
-    await token0.connect(alice).mint(alice.address, veryLargeTokenAmount);
+    await token0.connect(alice).mint(await alice.getAddress(), veryLargeTokenAmount);
     await token0
       .connect(alice)
-      .approve(algebraVault.address, veryLargeTokenAmount);
+      .approve(await algebraVault.getAddress(), veryLargeTokenAmount);
 
     await algebraVault
       .connect(alice)
-      .deposit(smallTokenAmount, 0, alice.address);
+      .deposit(smallTokenAmount, 0, await alice.getAddress());
 
-    await token0.connect(bob).mint(bob.address, veryLargeTokenAmount);
+    await token0.connect(bob).mint(await bob.getAddress(), veryLargeTokenAmount);
     await token0
       .connect(bob)
-      .approve(algebraVault.address, veryLargeTokenAmount);
+      .approve(await algebraVault.getAddress(), veryLargeTokenAmount);
 
-    await algebraVault.connect(bob).deposit(smallTokenAmount, 0, bob.address);
+    await algebraVault.connect(bob).deposit(smallTokenAmount, 0, await bob.getAddress());
 
-    let alice_liq_balance = algebraVault.balanceOf(alice.address);
-    let bob_liq_balance = algebraVault.balanceOf(bob.address);
+    let alice_liq_balance = await algebraVault.balanceOf(await alice.getAddress());
+    let bob_liq_balance = await algebraVault.balanceOf(await bob.getAddress());
 
     await algebraVault
       .connect(alice)
-      .withdraw(alice_liq_balance, algebraVault.address);
+      .withdraw(alice_liq_balance, await algebraVault.getAddress());
 
-    await algebraVault.connect(bob).withdraw(bob_liq_balance, bob.address);
+    await algebraVault.connect(bob).withdraw(bob_liq_balance, await bob.getAddress());
   });
 
   it("Collected fees", async () => {
-    await token1.connect(alice).mint(algebraVault.address, smallTokenAmount);
-    await token0.connect(alice).mint(alice.address, veryLargeTokenAmount);
+    await token1.connect(alice).mint(await algebraVault.getAddress(), smallTokenAmount);
+    await token0.connect(alice).mint(await alice.getAddress(), veryLargeTokenAmount);
     
     
-    await algebraVaultFactory.connect(wallet).setAmmFee(ethers.utils.parseEther("0.1"));
-    await algebraVault.connect(wallet).setAmmFeeRecipient(alice.address);
+    await algebraVaultFactory.connect(wallet).setAmmFee(ethers.parseEther("0.1"));
+    await algebraVault.connect(wallet).setAmmFeeRecipient(await alice.getAddress());
     await token0
       .connect(alice)
-      .approve(algebraVault.address, veryLargeTokenAmount);
+      .approve(await algebraVault.getAddress(), veryLargeTokenAmount);
     await algebraVault
       .connect(alice)
-      .deposit(smallTokenAmount, 0, alice.address);
+      .deposit(smallTokenAmount, 0, await alice.getAddress());
 
     await algebraVault.rebalance(-600, 600, -1800, 3600, 0);
-    await token0.connect(carol).mint(carol.address, veryLargeTokenAmount);
-    await token0.connect(carol).approve(router.address, veryLargeTokenAmount);
+    await token0.connect(carol).mint(await carol.getAddress(), veryLargeTokenAmount);
+    await token0.connect(carol).approve(await router.getAddress(), veryLargeTokenAmount);
     await router.connect(carol).exactInputSingle(
       {
-        tokenIn: token0.address,
-        tokenOut: token1.address,
-        recipient: alice.address,
+        tokenIn: await token0.getAddress(),
+        tokenOut: await token1.getAddress(),
+        recipient: await alice.getAddress(),
         deployer: NULL_ADDRESS,
         deadline: 2000000000, // Wed May 18 2033 03:33:20 GMT+0000
         amountIn: largeTokenAmount,
-        amountOutMinimum: ethers.utils.parseEther("0"),
+        amountOutMinimum: ethers.parseEther("0"),
         limitSqrtPrice: 0,
       },
       { gasLimit: 30000000 }
     );
 
-    await token1.mint(carol.address, giantTokenAmount);
-    await token1.connect(carol).approve(router.address, giantTokenAmount);
+    await token1.mint(await carol.getAddress(), giantTokenAmount);
+    await token1.connect(carol).approve(await router.getAddress(), giantTokenAmount);
     await router.connect(carol).exactInputSingle(
       {
-        tokenIn: token1.address,
-        tokenOut: token0.address,
-        recipient: alice.address,
+        tokenIn: await token1.getAddress(),
+        tokenOut: await token0.getAddress(),
+        recipient: await alice.getAddress(),
         deployer: NULL_ADDRESS,
         deadline: 2000000000, // Wed May 18 2033 03:33:20 GMT+0000
         amountIn: largeTokenAmount,
-        amountOutMinimum: ethers.utils.parseEther("0"),
+        amountOutMinimum: ethers.parseEther("0"),
         limitSqrtPrice: 0,
       },
       { gasLimit: 30000000 }
     );
 
     
-    let fees= await algebraVault.connect(alice).callStatic.collectFees();
+    let fees = await algebraVault.connect(alice).collectFees.staticCall();
     
     await algebraVault.connect(alice).collectFees();
-    let alice_liq_balance = algebraVault.balanceOf(alice.address);
+    let alice_liq_balance = await algebraVault.balanceOf(await alice.getAddress());
     await algebraVault
       .connect(alice)
-      .withdraw(alice_liq_balance, alice.address);
+      .withdraw(alice_liq_balance, await alice.getAddress());
 
   });
 
   it("Deposit from two accounts and Collect fees", async () => {
-    await token1.connect(alice).mint(algebraVault.address, smallTokenAmount);
-    await token0.connect(alice).mint(alice.address, veryLargeTokenAmount);
+    await token1.connect(alice).mint(await algebraVault.getAddress(), smallTokenAmount);
+    await token0.connect(alice).mint(await alice.getAddress(), veryLargeTokenAmount);
     await token0
       .connect(alice)
-      .approve(algebraVault.address, veryLargeTokenAmount);
+      .approve(await algebraVault.getAddress(), veryLargeTokenAmount);
     await algebraVault
       .connect(alice)
-      .deposit(ethers.utils.parseEther("0.001"), 0, alice.address);
+      .deposit(ethers.parseEther("0.001"), 0, await alice.getAddress());
 
-    await token0.connect(bob).mint(bob.address, veryLargeTokenAmount);
+    await token0.connect(bob).mint(await bob.getAddress(), veryLargeTokenAmount);
     await token0
       .connect(bob)
-      .approve(algebraVault.address, veryLargeTokenAmount);
+      .approve(await algebraVault.getAddress(), veryLargeTokenAmount);
     await algebraVault
       .connect(bob)
-      .deposit(ethers.utils.parseEther("0.001"), 0, bob.address);
+      .deposit(ethers.parseEther("0.001"), 0, await bob.getAddress());
 
-    await token0.connect(carol).mint(carol.address, veryLargeTokenAmount);
+    await token0.connect(carol).mint(await carol.getAddress(), veryLargeTokenAmount);
     await token0
       .connect(carol)
-      .approve(algebraVault.address, veryLargeTokenAmount);
+      .approve(await algebraVault.getAddress(), veryLargeTokenAmount);
     await algebraVault
       .connect(carol)
-      .deposit(ethers.utils.parseEther("0.001"), 0, carol.address);
+      .deposit(ethers.parseEther("0.001"), 0, await carol.getAddress());
 
     await algebraVault.rebalance(-60, 60, -600, 600, 0);
 
-    await token0.connect(carol).mint(carol.address, veryLargeTokenAmount);
-    await token0.connect(carol).approve(router.address, veryLargeTokenAmount);
+    await token0.connect(carol).mint(await carol.getAddress(), veryLargeTokenAmount);
+    await token0.connect(carol).approve(await router.getAddress(), veryLargeTokenAmount);
     await router.connect(carol).exactInputSingle(
       {
-        tokenIn: token0.address,
-        tokenOut: token1.address,
-        recipient: alice.address,
+        tokenIn: await token0.getAddress(),
+        tokenOut: await token1.getAddress(),
+        recipient: await alice.getAddress(),
         deployer: NULL_ADDRESS,
         deadline: 2000000000, // Wed May 18 2033 03:33:20 GMT+0000
         amountIn: smallTokenAmount,
-        amountOutMinimum: ethers.utils.parseEther("0"),
+        amountOutMinimum: ethers.parseEther("0"),
         limitSqrtPrice: 0,
       },
       { gasLimit: 30000000 }
     );
     
     await algebraVault.connect(alice).collectFees();
-    let alice_liq_balance = algebraVault.balanceOf(alice.address);
+    let alice_liq_balance = await algebraVault.balanceOf(await alice.getAddress());
     const [amount0_alice, amount1_alice] = await algebraVault
       .connect(alice)
-      .callStatic.withdraw(alice_liq_balance, alice.address);
+      .withdraw.staticCall(alice_liq_balance, await alice.getAddress());
 
     await algebraVault
       .connect(alice)
-      .withdraw(alice_liq_balance, alice.address);
-    let bob_liq_balance = algebraVault.balanceOf(bob.address);
+      .withdraw(alice_liq_balance, await alice.getAddress());
+    let bob_liq_balance = await algebraVault.balanceOf(await bob.getAddress());
     const [amount0_bob, amount1_bob] = await algebraVault
       .connect(bob)
-      .callStatic.withdraw(bob_liq_balance, bob.address);
+      .withdraw.staticCall(bob_liq_balance, await bob.getAddress());
     
 
-    await algebraVault.connect(bob).withdraw(bob_liq_balance, bob.address);
+    await algebraVault.connect(bob).withdraw(bob_liq_balance, await bob.getAddress());
   });
 
   it("deposit after tranfer token1 to vault", async () => {
     //despoit Alice
-    await token0.connect(alice).mint(alice.address, veryLargeTokenAmount);
-    let token0_alice_balance = await token0.balanceOf(alice.address);
+    await token0.connect(alice).mint(await alice.getAddress(), veryLargeTokenAmount);
+    let token0_alice_balance = await token0.balanceOf(await alice.getAddress());
     await token0
       .connect(alice)
-      .approve(algebraVault.address, veryLargeTokenAmount);
+      .approve(await algebraVault.getAddress(), veryLargeTokenAmount);
 
     await algebraVault
       .connect(alice)
-      .deposit(ethers.utils.parseEther("0.001"), 0, alice.address);
-    let alice_liq_balance = await algebraVault.balanceOf(alice.address);
+      .deposit(ethers.parseEther("0.001"), 0, await alice.getAddress());
+    let alice_liq_balance = await algebraVault.balanceOf(await alice.getAddress());
 
     //deposit Bob
-    await token0.connect(bob).mint(bob.address, veryLargeTokenAmount);
+    await token0.connect(bob).mint(await bob.getAddress(), veryLargeTokenAmount);
     await token0
       .connect(bob)
-      .approve(algebraVault.address, veryLargeTokenAmount);
+      .approve(await algebraVault.getAddress(), veryLargeTokenAmount);
     await algebraVault
       .connect(bob)
-      .deposit(ethers.utils.parseEther("0.001"), 0, bob.address);
-    let bob_liq_balance = await algebraVault.balanceOf(bob.address);
+      .deposit(ethers.parseEther("0.001"), 0, await bob.getAddress());
+    let bob_liq_balance = await algebraVault.balanceOf(await bob.getAddress());
     
 
     //Mint token
-    await token1.mint(algebraVault.address, ethers.utils.parseEther("0.001"));
-    // await algebraVault
-    //   .connect(alice)
-    //   .withdraw(alice_liq_balance, alice.address);
-    let token0_alice_balance_after = await token0.balanceOf(alice.address);
+    await token1.mint(await algebraVault.getAddress(), ethers.parseEther("0.001"));
+    let token0_alice_balance_after = await token0.balanceOf(await alice.getAddress());
 
     
-    await algebraVault.connect(bob).withdraw(bob_liq_balance, bob.address);
-    let token0_bob_balance_after_withdraw = await token0.balanceOf(bob.address);
+    await algebraVault.connect(bob).withdraw(bob_liq_balance, await bob.getAddress());
+    let token0_bob_balance_after_withdraw = await token0.balanceOf(await bob.getAddress());
     
-    await token0.connect(carol).mint(carol.address, veryLargeTokenAmount);
+    await token0.connect(carol).mint(await carol.getAddress(), veryLargeTokenAmount);
     await token0
       .connect(carol)
-      .approve(algebraVault.address, veryLargeTokenAmount);
+      .approve(await algebraVault.getAddress(), veryLargeTokenAmount);
     await algebraVault
       .connect(carol)
-      .deposit(ethers.utils.parseEther("0.001"), 0, carol.address);
-    let carol_liq_balance = await algebraVault.balanceOf(carol.address);
+      .deposit(ethers.parseEther("0.001"), 0, await carol.getAddress());
+    let carol_liq_balance = await algebraVault.balanceOf(await carol.getAddress());
     
 
     await algebraVault
       .connect(carol)
-      .withdraw(carol_liq_balance, carol.address);
-    let carol_tokn0_balance_after = await token0.balanceOf(carol.address);
+      .withdraw(carol_liq_balance, await carol.getAddress());
+    let carol_tokn0_balance_after = await token0.balanceOf(await carol.getAddress());
     
   });
 
   it("Delta balances after withdrowal", async () => {
-    await token0.mint(alice.address, veryLargeTokenAmount);
-    await token0.mint(bob.address, veryLargeTokenAmount);
+    await token0.mint(await alice.getAddress(), veryLargeTokenAmount);
+    await token0.mint(await bob.getAddress(), veryLargeTokenAmount);
 
     await token0
       .connect(alice)
-      .approve(algebraVault.address, veryLargeTokenAmount);
+      .approve(await algebraVault.getAddress(), veryLargeTokenAmount);
     await token0
       .connect(bob)
-      .approve(algebraVault.address, veryLargeTokenAmount);
+      .approve(await algebraVault.getAddress(), veryLargeTokenAmount);
 
-    await token0.mint(algebraVault.address, smallTokenAmount);
+    await token0.mint(await algebraVault.getAddress(), smallTokenAmount);
     //Deposit Alice
     await algebraVault
       .connect(alice)
-      .deposit(smallTokenAmount, 0, alice.address);
-    let alice_liq_balance = await algebraVault.balanceOf(alice.address);
+      .deposit(smallTokenAmount, 0, await alice.getAddress());
+    let alice_liq_balance = await algebraVault.balanceOf(await alice.getAddress());
     //Mint to Vault
 
     //Deposit Bob
-    await algebraVault.connect(bob).deposit(smallTokenAmount, 0, bob.address);
-    let bob_liq_balance = await algebraVault.balanceOf(bob.address);
+    await algebraVault.connect(bob).deposit(smallTokenAmount, 0, await bob.getAddress());
+    let bob_liq_balance = await algebraVault.balanceOf(await bob.getAddress());
 
     //Balances before Withdraw
-    let aliceToken0BalanceBefore = await token0.balanceOf(alice.address);
-    let bobToken0BalanceBefore = await token0.balanceOf(bob.address);
+    let aliceToken0BalanceBefore = await token0.balanceOf(await alice.getAddress());
+    let bobToken0BalanceBefore = await token0.balanceOf(await bob.getAddress());
 
     //withdraws
     await algebraVault
       .connect(alice)
-      .withdraw(alice_liq_balance, alice.address);
-    await algebraVault.connect(bob).withdraw(bob_liq_balance, bob.address);
+      .withdraw(alice_liq_balance, await alice.getAddress());
+    await algebraVault.connect(bob).withdraw(bob_liq_balance, await bob.getAddress());
 
     //Balances after Withdraw
-    let aliceToken0BalanceAfter = await token0.balanceOf(alice.address);
-    let bobToken0BalanceAfter = await token0.balanceOf(bob.address);
+    let aliceToken0BalanceAfter = await token0.balanceOf(await alice.getAddress());
+    let bobToken0BalanceAfter = await token0.balanceOf(await bob.getAddress());
 
-    let aliceDelta = aliceToken0BalanceAfter.sub(aliceToken0BalanceBefore);
-    let bobDelta = bobToken0BalanceAfter.sub(bobToken0BalanceBefore);
+    let aliceDelta = aliceToken0BalanceAfter - aliceToken0BalanceBefore;
+    let bobDelta = bobToken0BalanceAfter - bobToken0BalanceBefore;
 
-    alice_liq_balance = await algebraVault.balanceOf(alice.address);
+    alice_liq_balance = await algebraVault.balanceOf(await alice.getAddress());
   });
   it("check Lp balance", async () => {
-    await token0.mint(alice.address, veryLargeTokenAmount);
-    await token0.mint(bob.address, smallTokenAmount);
-    await token0.mint(carol.address, smallTokenAmount);
+    await token0.mint(await alice.getAddress(), veryLargeTokenAmount);
+    await token0.mint(await bob.getAddress(), smallTokenAmount);
+    await token0.mint(await carol.getAddress(), smallTokenAmount);
 
     await token0
       .connect(alice)
-      .approve(algebraVault.address, veryLargeTokenAmount);
+      .approve(await algebraVault.getAddress(), veryLargeTokenAmount);
     await token0
       .connect(bob)
-      .approve(algebraVault.address, veryLargeTokenAmount);
+      .approve(await algebraVault.getAddress(), veryLargeTokenAmount);
     await token0
       .connect(carol)
-      .approve(algebraVault.address, veryLargeTokenAmount);
+      .approve(await algebraVault.getAddress(), veryLargeTokenAmount);
 
     await algebraVault
       .connect(alice)
-      .deposit(smallTokenAmount, 0, alice.address);
-    await algebraVault.connect(bob).deposit(smallTokenAmount, 0, bob.address);
-    await token0.mint(algebraVault.address, smallTokenAmount);
+      .deposit(smallTokenAmount, 0, await alice.getAddress());
+    await algebraVault.connect(bob).deposit(smallTokenAmount, 0, await bob.getAddress());
+    await token0.mint(await algebraVault.getAddress(), smallTokenAmount);
     await algebraVault
       .connect(carol)
-      .deposit(smallTokenAmount, 0, carol.address);
+      .deposit(smallTokenAmount, 0, await carol.getAddress());
 
-    let alice_liq_balance = await algebraVault.balanceOf(alice.address);
-    let bob_liq_balance = await algebraVault.balanceOf(bob.address);
-    let carol_liq_balance = await algebraVault.balanceOf(carol.address);
+    let alice_liq_balance = await algebraVault.balanceOf(await alice.getAddress());
+    let bob_liq_balance = await algebraVault.balanceOf(await bob.getAddress());
+    let carol_liq_balance = await algebraVault.balanceOf(await carol.getAddress());
 
    
   });
 
   it("check baseLower",async () => {
     
-    await token0.mint(alice.address, veryLargeTokenAmount);
-    await token0.connect(alice).approve(algebraVault.address, veryLargeTokenAmount);
-    await algebraVault.connect(alice).deposit(smallTokenAmount, 0, alice.address);
+    await token0.mint(await alice.getAddress(), veryLargeTokenAmount);
+    await token0.connect(alice).approve(await algebraVault.getAddress(), veryLargeTokenAmount);
+    await algebraVault.connect(alice).deposit(smallTokenAmount, 0, await alice.getAddress());
     await expect(algebraVault.connect(wallet).rebalance(1800, 3600, -600, 600, 0)).to.emit(algebraPool, "Mint");
     let baseLower = await algebraVault.baseLower();
     
   });
   it("check baseUpper",async () => {
-    await token0.mint(alice.address, veryLargeTokenAmount);
-    await token0.connect(alice).approve(algebraVault.address, veryLargeTokenAmount);
-    await algebraVault.connect(alice).deposit(smallTokenAmount, 0, alice.address);
+    await token0.mint(await alice.getAddress(), veryLargeTokenAmount);
+    await token0.connect(alice).approve(await algebraVault.getAddress(), veryLargeTokenAmount);
+    await algebraVault.connect(alice).deposit(smallTokenAmount, 0, await alice.getAddress());
     await expect(algebraVault.connect(wallet).rebalance(1800, 3600, -600, 600, 0)).to.emit(algebraPool, "Mint");
     let baseUpper = await algebraVault.baseUpper();
     
   });
   it("check limitPosition",async () => {
-    await token0.mint(algebraVault.address, veryLargeTokenAmount);
-    await token1.mint(algebraVault.address,veryLargeTokenAmount);
-    await token0.mint(alice.address, veryLargeTokenAmount);
-    await token0.connect(alice).approve(algebraVault.address, veryLargeTokenAmount);
-    await algebraVault.connect(alice).deposit(smallTokenAmount, 0, alice.address);
+    await token0.mint(await algebraVault.getAddress(), veryLargeTokenAmount);
+    await token1.mint(await algebraVault.getAddress(),veryLargeTokenAmount);
+    await token0.mint(await alice.getAddress(), veryLargeTokenAmount);
+    await token0.connect(alice).approve(await algebraVault.getAddress(), veryLargeTokenAmount);
+    await algebraVault.connect(alice).deposit(smallTokenAmount, 0, await alice.getAddress());
     await expect(algebraVault.connect(wallet).rebalance(1800, 3600, -3600, -1800, 0)).to.emit(algebraPool, "Mint");
     let limitUpper = await algebraVault.limitUpper();
     let limitLower = await algebraVault.limitLower();
@@ -1087,130 +1048,110 @@ describe("AlgebraVault General Functionality", () => {
   });
   
   it("check change rebalance manager",async () => {
-    await expect(algebraVault.connect(wallet).setRebalanceManager(alice.address)).to.emit(algebraVault, "RebalanceManager");
+    await expect(algebraVault.connect(wallet).setRebalanceManager(await alice.getAddress())).to.emit(algebraVault, "RebalanceManager");
   });
   it("check setHysteresis", async()=>{
-    await expect(algebraVault.connect(wallet).setHysteresis(1)).to.emit(algebraVault, "Hysteresis");
-    await token0.mint(alice.address, giantTokenAmount);
-    await token0.connect(alice).approve(algebraVault.address, giantTokenAmount);
+    // Set small hysteresis to trigger check on significant price deviation
+    await expect(algebraVault.connect(wallet).setHysteresis(ethers.parseEther("0.01")))
+      .to.emit(algebraVault, "Hysteresis");
+    await token0.mint(await alice.getAddress(), giantTokenAmount);
     await algebraVault.connect(wallet).setDepositMax(giantTokenAmount,giantTokenAmount);
 
-    await token0.mint(carol.address, giantTokenAmount);
-    await token0.connect(carol).approve(router.address, giantTokenAmount);
-
-    await network.provider.send("evm_setAutomine", [false]);
-    const txSwap = await router.connect(carol).exactInputSingle(
-      {
-        tokenIn: token0.address,
-        tokenOut: token1.address,
-        recipient: carol.address,
-        deployer: NULL_ADDRESS,
-        deadline: 2000000000, // Wed May 18 2033 03:33:20 GMT+0000
-        amountIn: largeTokenAmount,
-        amountOutMinimum: ethers.utils.parseEther("0"),
-        limitSqrtPrice: 0,
-      },
-      { gasLimit: 30000000 }
-    );
+    // Deploy TestDepositHelper
+    const helperFactory = await ethers.getContractFactory("TestDepositHelper");
+    const helper = await helperFactory.deploy();
     
+    // Approve helper to spend tokens
+    const totalAmount = veryLargeTokenAmount + largeTokenAmount;
+    await token0.connect(alice).approve(await helper.getAddress(), totalAmount);
     
-    const txDeposit = await algebraVault.connect(alice).deposit(largeTokenAmount,0,alice.address);
-    await network.provider.send("evm_mine");
-    
-
-    try{
-      await txDeposit.wait();
-      throw new Error("Expected transaction to revert");
-    } catch (error) {
-      expect(error.code).to.equal("CALL_EXCEPTION");
-      if (error.reason) {
-        expect(error.reason).to.include("transaction failed");
-      }
-    };
-    await network.provider.send("evm_setAutomine", [true]);
-
+    // Execute swap and deposit in same transaction - should revert
+    // because both happen in same block, oracle timestamp == block.timestamp
+    await expect(
+      helper.connect(alice).swapAndDeposit(
+        await router.getAddress(),
+        await algebraVault.getAddress(),
+        await token0.getAddress(),
+        await token1.getAddress(),
+        NULL_ADDRESS,
+        veryLargeTokenAmount, // Large swap to move price significantly
+        largeTokenAmount,     // Deposit amount
+        await alice.getAddress()
+      )
+    ).to.be.revertedWithCustomError(algebraVault, "InvalidDeposit");
   });
 
   it("check Hysteresis and auxTWAP=0", async()=>{
-    await expect(algebraVault.connect(wallet).setHysteresis(1)).to.emit(algebraVault, "Hysteresis");
-    await expect(algebraVault.connect(wallet).setAuxTwapPeriod(0)).to.emit(algebraVault,"SetAuxTwapPeriod");
-    await token0.mint(alice.address, giantTokenAmount);
-    await token0.connect(alice).approve(algebraVault.address, giantTokenAmount);
+    // Set hysteresis to 0 to trigger check on any price deviation when auxTWAP=0
+    await expect(algebraVault.connect(wallet).setHysteresis(0))
+      .to.emit(algebraVault, "Hysteresis");
+
+    await expect(algebraVault.connect(wallet).setAuxTwapPeriod(0))
+      .to.emit(algebraVault,"SetAuxTwapPeriod");
+
+    await token0.mint(await alice.getAddress(), giantTokenAmount);
     await algebraVault.connect(wallet).setDepositMax(giantTokenAmount,giantTokenAmount);
 
-    await token0.mint(carol.address, giantTokenAmount);
-    await token0.connect(carol).approve(router.address, giantTokenAmount);
-
-    await network.provider.send("evm_setAutomine", [false]);
-    const txSwap = await router.connect(carol).exactInputSingle(
-      {
-        tokenIn: token0.address,
-        tokenOut: token1.address,
-        recipient: carol.address,
-        deployer: NULL_ADDRESS,
-        deadline: 2000000000, // Wed May 18 2033 03:33:20 GMT+0000
-        amountIn: largeTokenAmount,
-        amountOutMinimum: ethers.utils.parseEther("0"),
-        limitSqrtPrice: 0,
-      },
-      { gasLimit: 30000000 }
-    );
+    // Deploy TestDepositHelper
+    const helperFactory = await ethers.getContractFactory("TestDepositHelper");
+    const helper = await helperFactory.deploy();
     
+    // Approve helper to spend tokens
+    const totalAmount = largeTokenAmount + largeTokenAmount;
+    await token0.connect(alice).approve(await helper.getAddress(), totalAmount);
     
-    const txDeposit = await algebraVault.connect(alice).deposit(largeTokenAmount,0,alice.address);
-    await network.provider.send("evm_mine");
-    
-
-    try{
-      await txDeposit.wait();
-      throw new Error("Expected transaction to revert");
-    } catch (error) {
-      expect(error.code).to.equal("CALL_EXCEPTION");
-      if (error.reason) {
-        expect(error.reason).to.include("transaction failed");
-      }
-    };
-    await network.provider.send("evm_setAutomine", [true]);
-
+    // Execute swap and deposit in same transaction - should revert
+    // With hysteresis=0 and auxTWAP=0, any price deviation triggers the timestamp check
+    await expect(
+      helper.connect(alice).swapAndDeposit(
+        await router.getAddress(),
+        await algebraVault.getAddress(),
+        await token0.getAddress(),
+        await token1.getAddress(),
+        NULL_ADDRESS,
+        largeTokenAmount,     // Regular swap amount
+        largeTokenAmount,     // Deposit amount
+        await alice.getAddress()
+      )
+    ).to.be.revertedWithCustomError(algebraVault, "InvalidDeposit");
   });
 
-  // it("check algebraSwapCallback",async () => {
-  //   await algebraVault.connect(algebraPool).algebraSwapCallback(-1, 10, "0x");
-  // });
-
   it("check factory: setAmmFee",async () => {
-    await expect(algebraVaultFactory.connect(alice).setAmmFee(ethers.utils.parseEther("0.001"))).to.be.reverted;
-    await expect(algebraVaultFactory.connect(wallet).setAmmFee(ethers.utils.parseEther("10"))).to.be.reverted;
-    await expect(algebraVaultFactory.connect(wallet).setAmmFee(ethers.utils.parseEther("0.001"))).to.emit(algebraVaultFactory, "AmmFee");
+    await expect(algebraVaultFactory.connect(alice).setAmmFee(ethers.parseEther("0.001"))).to.be.reverted;
+    await expect(algebraVaultFactory.connect(wallet).setAmmFee(ethers.parseEther("10"))).to.be.reverted;
+    expect(algebraVaultFactory.connect(wallet).setAmmFee(ethers.parseEther("0.001")))
+      .to.emit(algebraVaultFactory, "AmmFee");
 
   });
   it("check factory: setBaseFee",async () => {
-    await expect(algebraVaultFactory.connect(alice).setBaseFee(ethers.utils.parseEther("0.001"))).to.be.reverted;
-    await expect(algebraVaultFactory.connect(wallet).setBaseFee(ethers.utils.parseEther("10"))).to.be.reverted;
-    await expect(algebraVaultFactory.connect(wallet).setBaseFee(ethers.utils.parseEther("0.001"))).to.emit(algebraVaultFactory, "BaseFee");
+    await expect(algebraVaultFactory.connect(alice).setBaseFee(ethers.parseEther("0.001"))).to.be.reverted;
+    await expect(algebraVaultFactory.connect(wallet).setBaseFee(ethers.parseEther("10"))).to.be.reverted;
+    expect(algebraVaultFactory.connect(wallet).setBaseFee(ethers.parseEther("0.001")))
+      .to.emit(algebraVaultFactory, "BaseFee");
   });
   it("check factory: setBaseFeeSplit",async () => {
-    await expect(algebraVaultFactory.connect(alice).setBaseFeeSplit(ethers.utils.parseEther("0.001"))).to.be.reverted;
-    await expect(algebraVaultFactory.connect(wallet).setBaseFeeSplit(ethers.utils.parseEther("10"))).to.be.reverted;
-    await expect(algebraVaultFactory.connect(wallet).setBaseFeeSplit(ethers.utils.parseEther("0.001"))).to.emit(algebraVaultFactory, "BaseFeeSplit");
+    await expect(algebraVaultFactory.connect(alice).setBaseFeeSplit(ethers.parseEther("0.001"))).to.be.reverted;
+    await expect(algebraVaultFactory.connect(wallet).setBaseFeeSplit(ethers.parseEther("10"))).to.be.reverted;
+    expect(algebraVaultFactory.connect(wallet).setBaseFeeSplit(ethers.parseEther("0.001")))
+      .to.emit(algebraVaultFactory, "BaseFeeSplit");
   });
   it("check createAlgebraVault",async()=>{
-    await expect(algebraVaultFactory.connect(alice).createAlgebraVault(token0.address,true, token1.address,false)).to.be.reverted;
+    await expect(algebraVaultFactory.connect(alice).createAlgebraVault(await token0.getAddress(),true, await token1.getAddress(),false)).to.be.reverted;
 
   });
 });
 
 describe("AlgebraVault General Functionality (allowed token1)", () => {
-  let wallet: SignerWithAddress;
-  let alice: SignerWithAddress;
-  let bob: SignerWithAddress;
-  let carol: SignerWithAddress;
-  let other: SignerWithAddress;
-  let user0: SignerWithAddress;
-  let user1: SignerWithAddress;
-  let user2: SignerWithAddress;
-  let user3: SignerWithAddress;
-  let user4: SignerWithAddress;
+  let wallet: HardhatEthersSigner;
+  let alice: HardhatEthersSigner;
+  let bob: HardhatEthersSigner;
+  let carol: HardhatEthersSigner;
+  let other: HardhatEthersSigner;
+  let user0: HardhatEthersSigner;
+  let user1: HardhatEthersSigner;
+  let user2: HardhatEthersSigner;
+  let user3: HardhatEthersSigner;
+  let user4: HardhatEthersSigner;
 
   let factory: IAlgebraFactory;
   let router: ISwapRouter;
@@ -1227,7 +1168,7 @@ describe("AlgebraVault General Functionality (allowed token1)", () => {
 
   before("create fixture loader", async () => {
     [wallet, alice, bob, carol, other, user0, user1, user2, user3, user4] =
-      await ethers.getSigners();
+      await (ethers as any).getSigners();
   });
 
     beforeEach("deploy contracts", async () => {
@@ -1244,13 +1185,13 @@ describe("AlgebraVault General Functionality (allowed token1)", () => {
             depositGuardToken1,
         } = await loadFixture(algebraVaultTestFixture));
         
-        await algebraVaultFactory.setFeeRecipient(alice.address);
-        await algebraVaultFactory.connect(wallet).setFeeRecipient(other.address);
+        await algebraVaultFactory.setFeeRecipient(await alice.getAddress());
+        await algebraVaultFactory.connect(wallet).setFeeRecipient(await other.getAddress());
 
-        await factory.createPool(token0.address, token1.address, "0x");
+        await factory.createPool(await token0.getAddress(), await token1.getAddress(), "0x");
         const poolAddress = await factory.poolByPair(
-            token0.address,
-            token1.address
+            await token0.getAddress(),
+            await token1.getAddress()
         );
         algebraPool = (await ethers.getContractAt(
             "IAlgebraPool",
@@ -1261,23 +1202,23 @@ describe("AlgebraVault General Functionality (allowed token1)", () => {
         await algebraVaultFactory.connect(wallet).setAmmFee(100);
         await algebraVaultFactory
             .connect(wallet)
-            .createAlgebraVault(token0.address, false, token1.address, true);
+            .createAlgebraVault(await token0.getAddress(), false, await token1.getAddress(), true);
 
         // adding extra liquidity into pool to make sure there's always
         // someone to swap with
-        await token0.mint(carol.address, giantTokenAmount);
-        await token1.mint(carol.address, giantTokenAmount);
+        await token0.mint(await carol.getAddress(), giantTokenAmount);
+        await token1.mint(await carol.getAddress(), giantTokenAmount);
 
-        await token0.connect(carol).approve(nft.address, veryLargeTokenAmount);
-        await token1.connect(carol).approve(nft.address, veryLargeTokenAmount);
+        await token0.connect(carol).approve(await nft.getAddress(), veryLargeTokenAmount);
+        await token1.connect(carol).approve(await nft.getAddress(), veryLargeTokenAmount);
 
         await nft.connect(carol).mint({
-            token0: token0.address,
-            token1: token1.address,
+            token0: await token0.getAddress(),
+            token1: await token1.getAddress(),
             deployer: NULL_ADDRESS,
             tickLower: getMinTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
             tickUpper: getMaxTick(TICK_SPACINGS[FeeAmount.MEDIUM]),
-            recipient: carol.address,
+            recipient: await carol.getAddress(),
             amount0Desired: veryLargeTokenAmount,
             amount1Desired: veryLargeTokenAmount,
             amount0Min: 0,
@@ -1288,9 +1229,9 @@ describe("AlgebraVault General Functionality (allowed token1)", () => {
         await network.provider.send("evm_increaseTime", [3600]);
 
         const vaultKey = await algebraVaultFactory.genKey(
-            wallet.address,
-            token0.address,
-            token1.address,
+            await wallet.getAddress(),
+            await token0.getAddress(),
+            await token1.getAddress(),
             false,
             true
         );
@@ -1301,41 +1242,41 @@ describe("AlgebraVault General Functionality (allowed token1)", () => {
             "AlgebraVault",
             algebraVaultAddress
         )) as AlgebraVault;
-        await algebraVault.connect(wallet).setAffiliate(bob.address);
+        await algebraVault.connect(wallet).setAffiliate(await bob.getAddress());
         
 
         await algebraVault
             .connect(wallet)
             .setDepositMax(
-                ethers.utils.parseEther("100000"),
-                ethers.utils.parseEther("100000")
+                ethers.parseEther("100000"),
+                ethers.parseEther("100000")
             );
     });
 
     it("deposit and withdraw token1 if allowed token1", async () => {
       let wrappedNative = await depositGuardToken1.WRAPPED_NATIVE();
-      await expect(wrappedNative).to.be.equal(token1.address);
+      await expect(wrappedNative).to.be.equal(await token1.getAddress());
       await token1.connect(alice).approve(wrappedNative, smallTokenAmount);
       await expect(depositGuardToken1.connect(alice).forwardNativeDepositToAlgebraVault(
-        algebraVault.address,
-        wallet.address,
+        await algebraVault.getAddress(),
+        await wallet.getAddress(),
         0,
-        alice.address,
-        { value: ethers.utils.parseEther("1"), gasLimit: 30000000 }
+        await alice.getAddress(),
+        { value: ethers.parseEther("1"), gasLimit: 30000000 }
       )).to.emit(depositGuardToken1, "DepositForwarded");
 
-      await token0.mint(carol.address, giantTokenAmount);
-      await token1.mint(carol.address, giantTokenAmount);
-      await token0.connect(carol).approve(router.address, giantTokenAmount);
-      await token1.connect(carol).approve(router.address, giantTokenAmount);
+      await token0.mint(await carol.getAddress(), giantTokenAmount);
+      await token1.mint(await carol.getAddress(), giantTokenAmount);
+      await token0.connect(carol).approve(await router.getAddress(), giantTokenAmount);
+      await token1.connect(carol).approve(await router.getAddress(), giantTokenAmount);
       await router.connect(carol).exactInputSingle(
         {
-          tokenIn: token0.address,
-          tokenOut: token1.address,
-          recipient: carol.address,
+          tokenIn: await token0.getAddress(),
+          tokenOut: await token1.getAddress(),
+          recipient: await carol.getAddress(),
           deployer: NULL_ADDRESS,
           deadline: 2000000000,
-          amountIn: ethers.utils.parseEther("0.0001"),
+          amountIn: ethers.parseEther("0.0001"),
           amountOutMinimum: 0,
           limitSqrtPrice: 0,
         },
@@ -1343,29 +1284,28 @@ describe("AlgebraVault General Functionality (allowed token1)", () => {
       );
       await router.connect(carol).exactInputSingle(
         {
-          tokenIn: token1.address,
-          tokenOut: token0.address,
-          recipient: carol.address,
+          tokenIn: await token1.getAddress(),
+          tokenOut: await token0.getAddress(),
+          recipient: await carol.getAddress(),
           deployer: NULL_ADDRESS,
           deadline: 2000000000,
-          amountIn: ethers.utils.parseEther("0.0001"),
+          amountIn: ethers.parseEther("0.0001"),
           amountOutMinimum: 0,
           limitSqrtPrice: 0,
         },
         { gasLimit: 30000000 }
       );
 
-      let alice_liq_balance = await algebraVault.balanceOf(alice.address);
-      await algebraVault.connect(alice).approve(depositGuardToken1.address, alice_liq_balance);
-      await expect(depositGuardToken1.connect(alice).forwardNativeWithdrawFromAlgebraVault(
-        algebraVault.address,
-        wallet.address,
+      let alice_liq_balance = await algebraVault.balanceOf(await alice.getAddress());
+      await algebraVault.connect(alice).approve(await depositGuardToken1.getAddress(), alice_liq_balance);
+      expect(depositGuardToken1.connect(alice).forwardNativeWithdrawFromAlgebraVault(
+        await algebraVault.getAddress(),
+        await wallet.getAddress(),
         alice_liq_balance,
-        alice.address,
+        await alice.getAddress(),
         0,
         0
-      )
-    ).to.emit(algebraVault, "Withdraw");
+      )).to.emit(algebraVault, "Withdraw");
     });
     
   });

@@ -8,11 +8,12 @@ import '@cryptoalgebra/farming-proxy-plugin/contracts/interfaces/IAlgebraVirtual
 import './TestERC20.sol';
 
 contract MockPlugin is VolatilityOraclePlugin {
-    uint8 public constant defaultPluginConfig = uint8(Plugins.AFTER_INIT_FLAG | Plugins.BEFORE_SWAP_FLAG | Plugins.AFTER_SWAP_FLAG);
 
     address public incentive;
 
-    constructor(address _pool) BaseAbstractPlugin(_pool, address(0), msg.sender) {}
+    constructor(address _pool) BaseAbstractPlugin(_pool, address(0), msg.sender) {
+        defaultPluginConfig = uint8(Plugins.AFTER_INIT_FLAG | Plugins.BEFORE_SWAP_FLAG | Plugins.AFTER_SWAP_FLAG);
+    }
 
     event BeforeInitialize(address sender, uint160 sqrtPriceX96);
     event AfterInitialize(address sender, uint160 sqrtPriceX96, int24 tick);
