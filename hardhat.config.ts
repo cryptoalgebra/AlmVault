@@ -1,7 +1,5 @@
 import "@nomicfoundation/hardhat-toolbox";
 import "hardhat-contract-sizer";
-import "@nomiclabs/hardhat-etherscan";
-import "hardhat-deploy";
 import type { HardhatUserConfig } from "hardhat/config";
 import path from "path";
 
