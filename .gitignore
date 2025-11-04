@@ -1,12 +1,13 @@
 node_modules
 .env
+.idea
 
 # Hardhat files
 /cache
 /artifacts
 
 # TypeChain files
-/typechain
+/types
 /typechain-types
 
 # solidity-coverage files
