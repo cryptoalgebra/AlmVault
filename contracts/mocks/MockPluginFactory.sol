@@ -13,7 +13,7 @@ contract MockPluginFactory is IAlgebraPluginFactory {
     function afterCreatePoolHook(address plugin, address pool, address deployer) external override {}
 
     function beforeCreatePoolHook(address pool, address, address, address, address, bytes calldata data) external override returns (address plugin) {
-        plugin = address(new MockPoolPlugin(pool));
+        plugin = address(new MockPlugin(pool));
         pluginsForPools[pool] = plugin;
         emit DataOnPoolCreation(data);
     }

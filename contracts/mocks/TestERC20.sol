@@ -10,6 +10,8 @@ contract TestERC20 is IERC20Minimal {
     mapping(address => uint256) public override balanceOf;
     mapping(address => mapping(address => uint256)) public override allowance;
 
+    event Withdraw(address indexed to, uint256 amount);
+
     constructor(
         uint256 amountToMint
     ) {
@@ -58,5 +60,16 @@ contract TestERC20 is IERC20Minimal {
 
         emit Transfer(sender, recipient, amount);
         return true;
+    }
+
+    function deposit() public payable {
+        balanceOf[msg.sender] += msg.value;
+    }
+
+    function withdraw(uint256 amount) public {
+        require(balanceOf[msg.sender] >= amount, "insufficient balance");
+        balanceOf[msg.sender] -= amount;
+        payable(msg.sender).transfer(amount);
+        emit Withdraw(msg.sender, amount);
     }
 }

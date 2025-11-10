@@ -1,8 +1,19 @@
-// SPDX-License-Identifier: Unlicense
+// SPDX-License-Identifier: MIT
 
 pragma solidity >=0.8.4;
 
 interface IAlgebraVault {
+    error ZeroValue();
+    error NotManager();
+    error NotRebalancer();
+    error ZeroAddress();
+    error InvalidDeposit();
+    error EmptyVault();
+    error TokensOwed();
+    error IdenticalPositions();
+    error InvalidPosition();
+    error AlgebraDisconnectedPlugin();
+
     function algebraVaultFactory() external view returns (address);
 
     function pool() external view returns (address);
@@ -25,6 +36,8 @@ interface IAlgebraVault {
 
     function rebalanceManager() external view returns (address);
 
+    function farmingRewardsDistributor() external view returns (address);
+
     function baseLower() external view returns (int24);
 
     function baseUpper() external view returns (int24);
@@ -34,10 +47,10 @@ interface IAlgebraVault {
     function limitUpper() external view returns (int24);
 
     /// @notice NFT ID of the base position. If 0, the base position is not initialized.
-    function basePositionId() external view returns (uint256);
+    function basePositionId() external view returns (uint32);
 
     /// @notice NFT ID of the limit position. If 0, the limit position is not initialized.
-    function limitPositionId() external view returns (uint256);
+    function limitPositionId() external view returns (uint32);
 
     function deposit0Max() external view returns (uint256);
 
@@ -61,8 +74,6 @@ interface IAlgebraVault {
 
     function currentTick() external view returns (int24);
 
-    function resetAllowances() external;
-
     function rebalance(
         int24 _baseLower,
         int24 _baseUpper,
@@ -73,6 +84,8 @@ interface IAlgebraVault {
 
     function collectFees() external returns (uint256 fees0, uint256 fees1);
 
+    function collectRewards() external;
+
     function setDepositMax(uint256 _deposit0Max, uint256 _deposit1Max) external;
 
     function setHysteresis(uint256 _hysteresis) external;
@@ -82,6 +95,8 @@ interface IAlgebraVault {
     function setAffiliate(address _affiliate) external;
 
     function setRebalanceManager(address _rebalanceManager) external;
+
+    function setFarmingRewardsDistributor(address _farmingRewardsDistributor) external;
 
     function setTwapPeriod(uint32 newTwapPeriod) external;
 
@@ -113,6 +128,10 @@ interface IAlgebraVault {
     );
 
     event CollectFees(address indexed sender, uint256 feeAmount0, uint256 feeAmount1);
+
+    event RewardsCollected(uint256 reward, uint256 bonusReward);
+
+    event FarmingContract(address indexed sender, address farmingContract);
 
     event Hysteresis(address indexed sender, uint256 hysteresis);
 

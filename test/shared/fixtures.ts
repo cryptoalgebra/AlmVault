@@ -1,4 +1,19 @@
 import {
+  IAlgebraFactory,
+  IAlgebraPoolDeployer,
+  MockPluginFactory,
+  INonfungiblePositionManager,
+  ISwapRouter,
+  IAccessControl,
+  IAlgebraEternalFarming,
+  AlgebraVaultFactory,
+  UV3Math,
+  TestERC20,
+  TestOracle,
+  IFarmingCenter,
+  AlgebraVaultDepositGuard,
+} from "../../types";
+import {
   abi as ALGEBRA_FACTORY_ABI,
   bytecode as ALGEBRA_FACTORY_BYTECODE,
 } from "@cryptoalgebra/integral-core/artifacts/contracts/AlgebraFactory.sol/AlgebraFactory.json";
@@ -7,6 +22,14 @@ import {
   bytecode as ALGEBRA_POOL_DEPLOYER_BYTECODE,
 } from "@cryptoalgebra/integral-core/artifacts/contracts/AlgebraPoolDeployer.sol/AlgebraPoolDeployer.json";
 import {
+  abi as FARMING_CENTER_ABI,
+  bytecode as FARMING_CENTER_BYTECODE,
+} from "@cryptoalgebra/integral-farming/artifacts/contracts/FarmingCenter.sol/FarmingCenter.json";
+import {
+  abi as ETERNAL_FARMING_ABI,
+  bytecode as ETERNAL_FARMING_BYTECODE,
+} from "@cryptoalgebra/integral-farming/artifacts/contracts/farmings/AlgebraEternalFarming.sol/AlgebraEternalFarming.json";
+import {
   abi as NON_FUNGIBLE_POSITION_MANAGER_ABI,
   bytecode as NON_FUNGIBLE_POSITION_MANAGER_BYTECODE,
 } from "@cryptoalgebra/integral-periphery/artifacts/contracts/NonfungiblePositionManager.sol/NonfungiblePositionManager.json";
@@ -14,24 +37,11 @@ import {
   abi as SWAP_ROUTER_ABI,
   bytecode as SWAP_ROUTER_BYTECODE,
 } from "@cryptoalgebra/integral-periphery/artifacts/contracts/SwapRouter.sol/SwapRouter.json";
-
-import { BigNumber } from "@ethersproject/bignumber";
-import { getCreateAddress } from "ethers-v6";
 import { ethers } from "hardhat";
-
-import {
-  IAlgebraFactory,
-  IAlgebraPoolDeployer,
-  MockPluginFactory,
-  INonfungiblePositionManager,
-  ISwapRouter,
-  AlgebraVaultFactory,
-  UV3Math,
-  TestERC20,
-  TestOracle,
-} from "../../types";
+import { getCreateAddress } from "ethers";
 
 const NULL_ADDRESS = "0x0000000000000000000000000000000000000000";
+const hreEthers: any = ethers as any;
 
 type Fixture<T> = () => Promise<T>;
 
@@ -41,140 +51,255 @@ interface AlgebraFixture {
   nft: INonfungiblePositionManager;
   pluginFactory: MockPluginFactory;
   oracle: TestOracle;
+  poolDeployer: IAlgebraPoolDeployer;
 }
 
-
 async function algebraFixture(): Promise<AlgebraFixture> {
-  const [deployer] = await ethers.getSigners();
+  const [deployer] = await hreEthers.getSigners();
 
   // precompute
   const poolDeployerAddress = getCreateAddress({
-    from: deployer.address,
-    nonce: (await ethers.provider.getTransactionCount(deployer.address)) + 1,
+    from: await deployer.getAddress(),
+  nonce: (await hreEthers.provider.getTransactionCount(await deployer.getAddress())) + 1,
   });
 
   // const factoryFactory = await ethers.getContractFactory('AlgebraFactory');
-  const factoryFactory = new ethers.ContractFactory(ALGEBRA_FACTORY_ABI, ALGEBRA_FACTORY_BYTECODE, deployer);
+  const factoryFactory = new ethers.ContractFactory(
+    ALGEBRA_FACTORY_ABI,
+    ALGEBRA_FACTORY_BYTECODE,
+    deployer
+  );
 
   const factory_c = await factoryFactory.deploy(poolDeployerAddress);
+  await factory_c.waitForDeployment();
 
-  const factory = factory_c as IAlgebraFactory;
+  const factory = factory_c as unknown as IAlgebraFactory;
 
   const poolDeployerFactory = new ethers.ContractFactory(
     ALGEBRA_POOL_DEPLOYER_ABI,
     ALGEBRA_POOL_DEPLOYER_BYTECODE,
-    deployer,
+    deployer
   );
 
-  const poolDeployer = (await poolDeployerFactory.deploy(factory.address)) as IAlgebraPoolDeployer;
+  const poolDeployer_c = await poolDeployerFactory.deploy(
+    await factory_c.getAddress()
+  );
+  await poolDeployer_c.waitForDeployment();
+  const poolDeployer = poolDeployer_c as unknown as IAlgebraPoolDeployer;
 
   // const pluginFactoryFactory = await ethers.getContractFactory("BasePluginV1Factory");
   // const pluginFactory = (await pluginFactoryFactory.deploy(factory.address)) as IBasePluginV1Factory;
 
   const pluginFactoryFactory = await ethers.getContractFactory("MockPluginFactory");
-  const pluginFactory = (await pluginFactoryFactory.deploy()) as MockPluginFactory;
+  const pluginFactory = (await pluginFactoryFactory.deploy()) as unknown as MockPluginFactory;
 
-  await factory.setDefaultPluginFactory(pluginFactory.address);
+  await factory.setDefaultPluginFactory(await pluginFactory.getAddress());
 
   const tokenFactory = await ethers.getContractFactory("TestERC20");
-  const WETH = (await tokenFactory.deploy(BigNumber.from(2).pow(255))) as TestERC20; // TODO: change to real WETH
+  const WETH = (await tokenFactory.deploy(2n ** 255n)) as unknown as TestERC20; // TODO: change to real WETH
 
-  const routerFactory = new ethers.ContractFactory(SWAP_ROUTER_ABI, SWAP_ROUTER_BYTECODE, deployer);
-  const router = (await routerFactory.deploy(factory.address, WETH.address, poolDeployer.address)) as ISwapRouter;
+  const routerFactory = new ethers.ContractFactory(
+    SWAP_ROUTER_ABI,
+    SWAP_ROUTER_BYTECODE,
+    deployer
+  );
+  const router = (await routerFactory.deploy(
+    await factory_c.getAddress(),
+    await WETH.getAddress(),
+    await poolDeployer_c.getAddress()
+  )) as unknown as ISwapRouter;
 
   const nftFactory = new ethers.ContractFactory(
     NON_FUNGIBLE_POSITION_MANAGER_ABI,
     NON_FUNGIBLE_POSITION_MANAGER_BYTECODE,
-    deployer,
+    deployer
   );
   const nft = (await nftFactory.deploy(
-    factory.address,
-    WETH.address,
-    ethers.constants.AddressZero,
-    poolDeployer.address,
-  )) as INonfungiblePositionManager;
+    await factory_c.getAddress(),
+    await WETH.getAddress(),
+    NULL_ADDRESS,
+    await poolDeployer_c.getAddress()
+  )) as unknown as INonfungiblePositionManager;
 
   const uV3MathFactory = await ethers.getContractFactory("UV3Math");
-  const uV3Math = (await uV3MathFactory.deploy()) as UV3Math;
+  const uV3Math = (await uV3MathFactory.deploy()) as unknown as UV3Math;
   const oracleFactory = await ethers.getContractFactory("TestOracle", {
     libraries: {
-      UV3Math: uV3Math.address,
+      UV3Math: await uV3Math.getAddress(),
     },
   });
-  const oracle = (await oracleFactory.deploy()) as TestOracle;
+  const oracle = (await oracleFactory.deploy()) as unknown as TestOracle;
 
-  return { factory, router, nft, pluginFactory, oracle };
+  return { factory, router, nft, pluginFactory, oracle, poolDeployer };
 }
 
 interface TokensFixture {
   token0: TestERC20;
   token1: TestERC20;
   token2: TestERC20;
+  token3: TestERC20;
 }
 
 async function tokensFixture(): Promise<TokensFixture> {
-  const tokenFactory = await ethers.getContractFactory("TestERC20");
-  const tokenA = (await tokenFactory.deploy(BigNumber.from(2).pow(255))) as TestERC20;
-  const tokenB = (await tokenFactory.deploy(BigNumber.from(2).pow(255))) as TestERC20;
-  const tokenC = (await tokenFactory.deploy(BigNumber.from(2).pow(255))) as TestERC20;
+  const tokenFactory = await hreEthers.getContractFactory("TestERC20");
+  const tokenA = (await tokenFactory.deploy(2n ** 255n)) as unknown as TestERC20;
+  const tokenB = (await tokenFactory.deploy(2n ** 255n)) as unknown as TestERC20;
+  const tokenC = (await tokenFactory.deploy(2n ** 255n)) as unknown as TestERC20;
+  const tokenD = (await tokenFactory.deploy(2n ** 255n)) as unknown as TestERC20;
 
-  const [token0, token1, token2] = [tokenA, tokenB, tokenC].sort((tokenA, tokenB) =>
-    tokenA.address.toLowerCase() < tokenB.address.toLowerCase() ? -1 : 1,
+  const tokens = [tokenA, tokenB, tokenC, tokenD];
+  const tokensWithAddr = await Promise.all(
+    tokens.map(async (t) => ({ t, addr: (await (t as any).getAddress()).toLowerCase() }))
   );
+  tokensWithAddr.sort((a, b) => (a.addr < b.addr ? -1 : 1));
+  const [token0, token1, token2, token3] = tokensWithAddr.map((x) => x.t);
 
-  return { token0, token1, token2 };
+  return { token0, token1, token2, token3 };
 }
 
 interface AlgebraVaultFactoryFixture {
   algebraVaultFactory: AlgebraVaultFactory;
+  algebraEternalFarming: IAlgebraEternalFarming;
+  farmingCenter: IFarmingCenter;
+  depositGuard: AlgebraVaultDepositGuard;
+  depositGuardToken1: AlgebraVaultDepositGuard;
 }
 
 async function algebraVaultFactoryFixture(
   factory: IAlgebraFactory,
+  poolDeployer: IAlgebraPoolDeployer,
   nft: INonfungiblePositionManager,
+  token0: TestERC20,
+  token1: TestERC20
 ): Promise<AlgebraVaultFactoryFixture> {
+  const [deployer] = await hreEthers.getSigners();
+
   const uV3MathFactory = await ethers.getContractFactory("UV3Math");
   const uV3Math = (await uV3MathFactory.deploy()) as UV3Math;
 
-  const algebraVaultDeployer = await ethers.getContractFactory("AlgebraVaultDeployer", {
-    libraries: {
-      UV3Math: uV3Math.address,
-    },
-  });
+  const eternalFarmingFactory = new hreEthers.ContractFactory(
+    ETERNAL_FARMING_ABI,
+    ETERNAL_FARMING_BYTECODE,
+    deployer
+  );
+  const algebraEternalFarming_c = await eternalFarmingFactory.deploy(
+    await (poolDeployer as any).getAddress(),
+    await (nft as any).getAddress()
+  );
+  await algebraEternalFarming_c.waitForDeployment();
+  const algebraEternalFarming = algebraEternalFarming_c as unknown as IAlgebraEternalFarming;
+
+  const farmingCenterFactory = new hreEthers.ContractFactory(
+    FARMING_CENTER_ABI,
+    FARMING_CENTER_BYTECODE,
+    deployer
+  );
+  const farmingCenter_c = await farmingCenterFactory.deploy(
+    await (algebraEternalFarming as any).getAddress(),
+    await (nft as any).getAddress()
+  );
+  await farmingCenter_c.waitForDeployment();
+  const farmingCenter = farmingCenter_c as unknown as IFarmingCenter;
+
+  await (nft as any).setFarmingCenter(await (farmingCenter as any).getAddress());
+
+  await (algebraEternalFarming as any).setFarmingCenterAddress(await (farmingCenter as any).getAddress());
+
+  const incentiveMakerRole = await algebraEternalFarming.INCENTIVE_MAKER_ROLE();
+
+  await (factory as any as IAccessControl).grantRole(
+    incentiveMakerRole,
+    await deployer.getAddress()
+  );
+
+  const algebraVaultDeployer = await hreEthers.getContractFactory(
+    "AlgebraVaultDeployer",
+    {
+      libraries: {
+        UV3Math: await (uV3Math as any).getAddress(),
+      },
+    }
+  );
   const libAlgebraVaultDeployer = await algebraVaultDeployer.deploy();
 
-  const algebraVaultFactoryFactory = await ethers.getContractFactory("AlgebraVaultFactory", {
-    libraries: {
-      AlgebraVaultDeployer: libAlgebraVaultDeployer.address,
-    },
-  });
+  const farmingRewardsDistributorDeployer = await hreEthers.getContractFactory(
+    "FarmingRewardsDistributorDeployer"
+  );
+  const libFarmingRewardsDistributorDeployer = await farmingRewardsDistributorDeployer.deploy();
 
-  const algebraVaultFactory = (await algebraVaultFactoryFactory.deploy(
-    factory.address,
-    NULL_ADDRESS,
-    nft.address,
-    "VEL"
-  )) as AlgebraVaultFactory;
+  const algebraVaultFactoryFactory = await ethers.getContractFactory(
+    "AlgebraVaultFactory",
+    {
+      libraries: {
+          AlgebraVaultDeployer: await (libAlgebraVaultDeployer as any).getAddress(),
+          FarmingRewardsDistributorDeployer: await (libFarmingRewardsDistributorDeployer as any).getAddress(),
+        },
+    }
+  );
 
-  return { algebraVaultFactory };
-}
+    const algebraVaultFactory_c = (await algebraVaultFactoryFactory.deploy(
+      await (factory as any).getAddress(),
+      NULL_ADDRESS,
+      await (algebraEternalFarming as any).getAddress(),
+      await (nft as any).getAddress(),
+      "VEL"
+    ));
+    await algebraVaultFactory_c.waitForDeployment();
+    const algebraVaultFactory = algebraVaultFactory_c as unknown as AlgebraVaultFactory;
 
-type AlgebraVaultTestFixture = AlgebraFixture & TokensFixture & AlgebraVaultFactoryFixture;
-
-export const algebraVaultTestFixture: Fixture<AlgebraVaultTestFixture> = async function (): Promise<AlgebraVaultTestFixture> {
-  const { factory, router, nft, pluginFactory, oracle } = await algebraFixture();
-  const { token0, token1, token2 } = await tokensFixture();
-  const { algebraVaultFactory } = await algebraVaultFactoryFixture(factory, nft);
+  const depositGuardFactory = await ethers.getContractFactory(
+    "AlgebraVaultDepositGuard"
+  );
+    const depositGuard = (await depositGuardFactory.deploy(
+      await (algebraVaultFactory as any).getAddress(),
+      await (token0 as any).getAddress()
+    )) as unknown as AlgebraVaultDepositGuard;
+    const depositGuardToken1 = (await depositGuardFactory.deploy(
+      await (algebraVaultFactory as any).getAddress(),
+      await (token1 as any).getAddress()
+    )) as unknown as AlgebraVaultDepositGuard;
 
   return {
-    token0,
-    token1,
-    token2,
-    factory,
-    router,
-    nft,
-    pluginFactory,
-    oracle,
     algebraVaultFactory,
+    algebraEternalFarming,
+    farmingCenter,
+    depositGuard,
+    depositGuardToken1,
   };
-};
+}
+
+type AlgebraVaultTestFixture = AlgebraFixture &
+  TokensFixture &
+  AlgebraVaultFactoryFixture;
+
+export const algebraVaultTestFixture: Fixture<AlgebraVaultTestFixture> =
+  async function (): Promise<AlgebraVaultTestFixture> {
+    const { factory, router, nft, pluginFactory, oracle, poolDeployer } =
+      await algebraFixture();
+    const { token0, token1, token2, token3 } = await tokensFixture();
+    const {
+      algebraVaultFactory,
+      algebraEternalFarming,
+      farmingCenter,
+      depositGuard,
+      depositGuardToken1,
+    } = await algebraVaultFactoryFixture(factory, poolDeployer, nft, token0, token1);
+
+    return {
+      token0,
+      token1,
+      token2,
+      token3,
+      factory,
+      router,
+      nft,
+      pluginFactory,
+      oracle,
+      poolDeployer,
+      algebraVaultFactory,
+      algebraEternalFarming,
+      farmingCenter,
+      depositGuard,
+      depositGuardToken1,
+    };
+  };

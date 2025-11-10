@@ -1,16 +1,19 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.20;
-pragma abicoder v1;
 
 import '@cryptoalgebra/integral-core/contracts/interfaces/IAlgebraPool.sol';
 import '@cryptoalgebra/integral-core/contracts/libraries/Plugins.sol';
 import '@cryptoalgebra/volatility-oracle-plugin/contracts/VolatilityOraclePlugin.sol';
+import '@cryptoalgebra/farming-proxy-plugin/contracts/interfaces/IAlgebraVirtualPool.sol';
 import './TestERC20.sol';
 
-contract MockPoolPlugin is VolatilityOraclePlugin {
-    uint8 public constant defaultPluginConfig = uint8(Plugins.AFTER_INIT_FLAG | Plugins.BEFORE_SWAP_FLAG);
+contract MockPlugin is VolatilityOraclePlugin {
 
-    constructor(address _pool) BaseAbstractPlugin(_pool, address(0), msg.sender) {}
+    address public incentive;
+
+    constructor(address _pool) BaseAbstractPlugin(_pool, address(0), msg.sender) {
+        defaultPluginConfig = uint8(Plugins.AFTER_INIT_FLAG | Plugins.BEFORE_SWAP_FLAG | Plugins.AFTER_SWAP_FLAG);
+    }
 
     event BeforeInitialize(address sender, uint160 sqrtPriceX96);
     event AfterInitialize(address sender, uint160 sqrtPriceX96, int24 tick);
@@ -131,6 +134,13 @@ contract MockPoolPlugin is VolatilityOraclePlugin {
         bytes calldata data
     ) external override returns (bytes4) {
         emit AfterSwap(sender, recipient, zeroToOne, amountRequired, limitSqrtPrice, amount0, amount1, data);
+
+        address _incentive = incentive;
+
+        if (_incentive != address(0)) {
+            (, int24 tick, , ) = _getPoolState();
+            IAlgebraVirtualPool(_incentive).crossTo(tick, zeroToOne);
+        }
         return IAlgebraPlugin.afterSwap.selector;
     }
 
@@ -160,5 +170,16 @@ contract MockPoolPlugin is VolatilityOraclePlugin {
     ) external override returns (bytes4) {
         emit AfterFlash(sender, recipient, amount0, amount1, paid0, paid1, data);
         return IAlgebraPlugin.afterFlash.selector;
+    }
+
+    event SetIncentive(address virtualPool);
+
+    function setIncentive(address _incentive) external {
+        incentive = _incentive;
+        emit SetIncentive(_incentive);
+    }
+
+    function getPool() external view returns (address) {
+        return pool;
     }
 }

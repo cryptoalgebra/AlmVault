@@ -1,7 +1,5 @@
 import "@nomicfoundation/hardhat-toolbox";
 import "hardhat-contract-sizer";
-import "@nomiclabs/hardhat-etherscan";
-import "hardhat-deploy";
 import type { HardhatUserConfig } from "hardhat/config";
 import path from "path";
 
@@ -14,9 +12,10 @@ const config: HardhatUserConfig = {
   solidity: {
     version: "0.8.20",
     settings: {
+      viaIR: true,
       optimizer: {
         enabled: true,
-        runs: 200
+        runs: 0
       }
     }
   },
@@ -24,8 +23,11 @@ const config: HardhatUserConfig = {
     outDir: "types",
   },
   networks: {
+    hardhat: {
+      allowUnlimitedContractSize: true,
+    },
     baseTestnet: {
-      url: `https://sepolia.base.org`,
+      url: `https://base-sepolia.gateway.tenderly.co`,
       chainId: 84532,
       accounts: [`0x${MNEMONIC || '1000000000000000000000000000000000000000000000000000000000000000'}`],
     },

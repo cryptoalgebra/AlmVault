@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: MIT
 
 pragma solidity >=0.8.4;
 
@@ -32,6 +32,10 @@ interface IAlgebraVaultFactory {
     function algebraFactory() external view returns (address);
 
     function pluginDeployer() external view returns (address);
+
+    function farmingCenter() external view returns (address);
+
+    function eternalFarming() external view returns (address);
 
     function nftManager() external view returns (address);
 
