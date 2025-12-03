@@ -11,7 +11,7 @@ import {
   TestERC20,
   TestOracle,
   IFarmingCenter,
-  AlgebraVaultDepositGuard,
+  AlgebraVaultDepositGuard, AlgebraVaultStableFactory,
 } from "../../types";
 import {
   abi as ALGEBRA_FACTORY_ABI,
@@ -39,6 +39,7 @@ import {
 } from "@cryptoalgebra/integral-periphery/artifacts/contracts/SwapRouter.sol/SwapRouter.json";
 import { ethers } from "hardhat";
 import { getCreateAddress } from "ethers";
+import {isHigherPrecedenceThanAwait} from "@typescript-eslint/eslint-plugin/dist/util";
 
 const NULL_ADDRESS = "0x0000000000000000000000000000000000000000";
 const hreEthers: any = ethers as any;
@@ -303,3 +304,59 @@ export const algebraVaultTestFixture: Fixture<AlgebraVaultTestFixture> =
       depositGuardToken1,
     };
   };
+
+interface AlgebraVaultStableFactoryFixture {
+  algebraVaultStableFactory: AlgebraVaultStableFactory;
+}
+
+async function algebraVaultStableFactoryFixture(
+  factory: IAlgebraFactory,
+  nft: INonfungiblePositionManager,
+): Promise<AlgebraVaultStableFactoryFixture> {
+  const uV3MathFactory = await ethers.getContractFactory("UV3Math");
+  const uV3Math = (await uV3MathFactory.deploy()) as UV3Math;
+
+  const algebraVaultStableDeployer = await ethers.getContractFactory("AlgebraVaultStableDeployer", {
+    libraries: {
+      UV3Math: await (uV3Math as any).getAddress(),
+    },
+  });
+  const libAlgebraVaultStableDeployer = await algebraVaultStableDeployer.deploy();
+
+  const algebraVaultStableFactoryFactory = await ethers.getContractFactory("AlgebraVaultStableFactory", {
+    libraries: {
+      AlgebraVaultStableDeployer: await libAlgebraVaultStableDeployer.getAddress(),
+    },
+  });
+
+  const algebraVaultStableFactory = (await algebraVaultStableFactoryFactory.deploy(
+    await factory.getAddress(),
+    NULL_ADDRESS,
+    await nft.getAddress(),
+    "VEL"
+  )) as AlgebraVaultStableFactory;
+
+  return { algebraVaultStableFactory };
+}
+
+type AlgebraVaultStableTestFixture = AlgebraFixture & TokensFixture & AlgebraVaultStableFactoryFixture;
+
+export const algebraVaultStableTestFixture: Fixture<AlgebraVaultStableTestFixture> = async function (): Promise<AlgebraVaultStableTestFixture> {
+  const { factory, router, nft, pluginFactory, oracle, poolDeployer } = await algebraFixture();
+  const { token0, token1, token2, token3 } = await tokensFixture();
+  const { algebraVaultStableFactory } = await algebraVaultStableFactoryFixture(factory, nft);
+
+  return {
+    token0,
+    token1,
+    token2,
+    token3,
+    factory,
+    router,
+    nft,
+    pluginFactory,
+    oracle,
+    poolDeployer,
+    algebraVaultStableFactory,
+  };
+};
