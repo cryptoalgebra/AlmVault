@@ -1010,23 +1010,17 @@ describe("AlgebraVault General Functionality", () => {
    
   });
 
-  it("check baseLower",async () => {
-    
+  it("check base position",async () => {
     await token0.mint(await alice.getAddress(), veryLargeTokenAmount);
     await token0.connect(alice).approve(await algebraVault.getAddress(), veryLargeTokenAmount);
     await algebraVault.connect(alice).deposit(smallTokenAmount, 0, await alice.getAddress());
     await expect(algebraVault.connect(wallet).rebalance(1800, 3600, -600, 600, 0)).to.emit(algebraPool, "Mint");
     let baseLower = await algebraVault.baseLower();
-    
-  });
-  it("check baseUpper",async () => {
-    await token0.mint(await alice.getAddress(), veryLargeTokenAmount);
-    await token0.connect(alice).approve(await algebraVault.getAddress(), veryLargeTokenAmount);
-    await algebraVault.connect(alice).deposit(smallTokenAmount, 0, await alice.getAddress());
-    await expect(algebraVault.connect(wallet).rebalance(1800, 3600, -600, 600, 0)).to.emit(algebraPool, "Mint");
+    expect(baseLower).to.be.equal(1800, "wrong base lower")
     let baseUpper = await algebraVault.baseUpper();
-    
+    expect(baseUpper).to.be.equal(3600, "wrong base upper")
   });
+
   it("check limitPosition",async () => {
     await token0.mint(await algebraVault.getAddress(), veryLargeTokenAmount);
     await token1.mint(await algebraVault.getAddress(),veryLargeTokenAmount);
@@ -1035,8 +1029,9 @@ describe("AlgebraVault General Functionality", () => {
     await algebraVault.connect(alice).deposit(smallTokenAmount, 0, await alice.getAddress());
     await expect(algebraVault.connect(wallet).rebalance(1800, 3600, -3600, -1800, 0)).to.emit(algebraPool, "Mint");
     let limitUpper = await algebraVault.limitUpper();
+    expect(limitUpper).to.be.equal(-1800, "wrong base upper")
     let limitLower = await algebraVault.limitLower();
- 
+    expect(limitLower).to.be.equal(-3600, "wrong base lower")
   });
 
   it("check setAuxTwapPeriod",async () => {
