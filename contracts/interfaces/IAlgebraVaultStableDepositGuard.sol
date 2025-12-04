@@ -3,7 +3,6 @@
 pragma solidity >=0.8.4;
 
 interface IAlgebraVaultStableDepositGuard {
-
     /// @notice Emitted when the contract is deployed.
     /// @param _AlgebraVaultStableFactory Address of the AlgebraVaultStableFactory.
     event Deployed(address _AlgebraVaultStableFactory);

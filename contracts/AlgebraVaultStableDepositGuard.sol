@@ -85,6 +85,9 @@ contract AlgebraVaultStableDepositGuard is IAlgebraVaultStableDepositGuard, Reen
         require(token0 == vaultToken0 && token1 == vaultToken1, "Invalid tokens");
 
         // For stable vault, both tokens are allowed
+        IERC20(token0).safeTransferFrom(msg.sender, address(this), amount0);
+        IERC20(token1).safeTransferFrom(msg.sender, address(this), amount1);
+
         IERC20(token0).safeIncreaseAllowance(vault, amount0);
         IERC20(token1).safeIncreaseAllowance(vault, amount1);
 
