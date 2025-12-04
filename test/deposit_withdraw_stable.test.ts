@@ -384,7 +384,6 @@ describe("AlgebraVaultStable General Functionality", () => {
     let token0vault = await token0.balanceOf(await algebraVaultStable.getAddress());
     let token1vault = await token1.balanceOf(await algebraVaultStable.getAddress());
 
-    console.log(token0vault,token1vault)
     expect(token0vault).to.equal(0);
     expect(token1vault).to.equal(0);
 
@@ -565,7 +564,7 @@ describe("AlgebraVaultStable General Functionality", () => {
           0,
           await alice.getAddress()
         )
-    ).to.be.revertedWith("Invalid token");
+    ).to.be.revertedWith("Invalid tokens");
   });
 
   it("deposit after set DepositMax==0", async () => {
@@ -618,9 +617,7 @@ describe("AlgebraVaultStable General Functionality", () => {
     );
 
     const pool = await pairFlash.getPool(await token0.getAddress(), await token1.getAddress());
-    
 
-    
     await expect(
       pairFlash.connect(alice).initFlash({
         token0: await token0.getAddress(),
@@ -629,7 +626,7 @@ describe("AlgebraVaultStable General Functionality", () => {
         amount0: flashAmount0,
         amount1: flashAmount1,
       })
-    ).to.revertedWithCustomError(algebraVaultStable, "InvalidDeposit");
+    ).to.revertedWith("AV.currentTick: the pool is locked");
   });
 
   it("Withdraw to vault address", async () => {
@@ -901,22 +898,17 @@ describe("AlgebraVaultStable General Functionality", () => {
    
   });
 
-  it("check baseLower",async () => {
-    
+  it("check base position",async () => {
     await token0.mint(await alice.getAddress(), veryLargeTokenAmount);
     await token0.connect(alice).approve(await algebraVaultStable.getAddress(), veryLargeTokenAmount);
-    await algebraVaultStable.connect(alice).deposit(smallTokenAmount, 0, await alice.getAddress());
+    await token1.mint(await alice.getAddress(), veryLargeTokenAmount);
+    await token1.connect(alice).approve(await algebraVaultStable.getAddress(), veryLargeTokenAmount);
+    await algebraVaultStable.connect(alice).deposit(smallTokenAmount, smallTokenAmount, await alice.getAddress());
     await expect(algebraVaultStable.connect(wallet).rebalance(-600, 600, 0)).to.emit(algebraPool, "Mint");
     let baseLower = await algebraVaultStable.baseLower();
-    
-  });
-  it("check baseUpper",async () => {
-    await token0.mint(await alice.getAddress(), veryLargeTokenAmount);
-    await token0.connect(alice).approve(await algebraVaultStable.getAddress(), veryLargeTokenAmount);
-    await algebraVaultStable.connect(alice).deposit(smallTokenAmount, 0, await alice.getAddress());
-    await expect(algebraVaultStable.connect(wallet).rebalance(-600, 600, 0)).to.emit(algebraPool, "Mint");
+    expect(baseLower).to.be.equal(-600, "wrong base lower")
     let baseUpper = await algebraVaultStable.baseUpper();
-    
+    expect(baseUpper).to.be.equal(600, "wrong base upper")
   });
 
   it("check setAuxTwapPeriod",async () => {
@@ -958,7 +950,7 @@ describe("AlgebraVaultStable General Functionality", () => {
         largeTokenAmount,     // Deposit amount
         await alice.getAddress()
       )
-    ).to.be.revertedWithCustomError(algebraVaultStable, "InvalidDeposit");
+    ).to.be.revertedWith("AV.deposit: try later");
   });
 
   it("check Hysteresis and auxTWAP=0", async()=>{
@@ -993,7 +985,7 @@ describe("AlgebraVaultStable General Functionality", () => {
         largeTokenAmount,     // Deposit amount
         await alice.getAddress()
       )
-    ).to.be.revertedWithCustomError(algebraVaultStable, "InvalidDeposit");
+    ).to.be.revertedWith("AV.deposit: try later");
   });
 
   it("check factory: setAmmFee",async () => {
