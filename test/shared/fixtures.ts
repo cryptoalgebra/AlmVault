@@ -11,7 +11,9 @@ import {
   TestERC20,
   TestOracle,
   IFarmingCenter,
-  AlgebraVaultDepositGuard, AlgebraVaultStableFactory,
+  AlgebraVaultDepositGuard,
+  AlgebraVaultStableFactory,
+  AlgebraVaultStableDepositGuard
 } from "../../types";
 import {
   abi as ALGEBRA_FACTORY_ABI,
@@ -307,11 +309,12 @@ export const algebraVaultTestFixture: Fixture<AlgebraVaultTestFixture> =
 
 interface AlgebraVaultStableFactoryFixture {
   algebraVaultStableFactory: AlgebraVaultStableFactory;
+  depositGuardStable: AlgebraVaultStableDepositGuard;
 }
 
 async function algebraVaultStableFactoryFixture(
   factory: IAlgebraFactory,
-  nft: INonfungiblePositionManager,
+  nft: INonfungiblePositionManager
 ): Promise<AlgebraVaultStableFactoryFixture> {
   const uV3MathFactory = await ethers.getContractFactory("UV3Math");
   const uV3Math = (await uV3MathFactory.deploy()) as UV3Math;
@@ -336,7 +339,14 @@ async function algebraVaultStableFactoryFixture(
     "VEL"
   )) as AlgebraVaultStableFactory;
 
-  return { algebraVaultStableFactory };
+  const depositGuardStableFactory = await ethers.getContractFactory(
+    "AlgebraVaultStableDepositGuard"
+  );
+  const depositGuardStable = (await depositGuardStableFactory.deploy(
+    await (algebraVaultStableFactory as any).getAddress()
+  )) as unknown as AlgebraVaultStableDepositGuard;
+
+  return { algebraVaultStableFactory, depositGuardStable };
 }
 
 type AlgebraVaultStableTestFixture = AlgebraFixture & TokensFixture & AlgebraVaultStableFactoryFixture;
@@ -344,7 +354,7 @@ type AlgebraVaultStableTestFixture = AlgebraFixture & TokensFixture & AlgebraVau
 export const algebraVaultStableTestFixture: Fixture<AlgebraVaultStableTestFixture> = async function (): Promise<AlgebraVaultStableTestFixture> {
   const { factory, router, nft, pluginFactory, oracle, poolDeployer } = await algebraFixture();
   const { token0, token1, token2, token3 } = await tokensFixture();
-  const { algebraVaultStableFactory } = await algebraVaultStableFactoryFixture(factory, nft);
+  const { algebraVaultStableFactory, depositGuardStable } = await algebraVaultStableFactoryFixture(factory, nft);
 
   return {
     token0,
@@ -358,5 +368,6 @@ export const algebraVaultStableTestFixture: Fixture<AlgebraVaultStableTestFixtur
     oracle,
     poolDeployer,
     algebraVaultStableFactory,
+    depositGuardStable
   };
 };

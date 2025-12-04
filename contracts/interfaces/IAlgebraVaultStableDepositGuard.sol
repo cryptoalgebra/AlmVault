@@ -5,68 +5,54 @@ pragma solidity >=0.8.4;
 interface IAlgebraVaultStableDepositGuard {
 
     /// @notice Emitted when the contract is deployed.
-    /// @param _AlgebraVaultFactory Address of the AlgebraVaultFactory.
-    /// @param _WETH Address of the Wrapped ETH token.
-    event Deployed(address _AlgebraVaultFactory, address _WETH);
+    /// @param _AlgebraVaultStableFactory Address of the AlgebraVaultStableFactory.
+    event Deployed(address _AlgebraVaultStableFactory);
 
-    /// @notice Emitted when a deposit is forwarded to an AlgebraVault.
+    /// @notice Emitted when a deposit is forwarded to an AlgebraVaultStable.
     /// @param sender The address initiating the deposit.
-    /// @param vault The AlgebraVault receiving the deposit.
-    /// @param token The token being deposited.
-    /// @param amount The amount of the token being deposited.
+    /// @param vault The AlgebraVaultStable receiving the deposit.
+    /// @param amount0 The amount of the token0 being deposited.
+    /// @param amount1 The amount of the token1 being deposited.
     /// @param shares The amount of shares issued in the vault as a result of the deposit.
     /// @param to The address receiving the vault shares.
     event DepositForwarded(
         address indexed sender,
         address indexed vault,
-        address indexed token,
-        uint256 amount,
+        uint256 amount0,
+        uint256 amount1,
         uint256 shares,
         address to
     );
 
-    /// @notice Retrieves the address of the AlgebraVaultFactory.
-    /// @return Address of the AlgebraVaultFactory.
-    function AlgebraVaultFactory() external view returns (address);
+    /// @notice Retrieves the address of the AlgebraVaultStableFactory.
+    /// @return Address of the AlgebraVaultStableFactory.
+    function AlgebraVaultStableFactory() external view returns (address);
 
-    /// @notice Retrieves the address of the Wrapped Native Token (e.g., WETH).
-    /// @return Address of the Wrapped Native Token.
-    function WRAPPED_NATIVE() external view returns (address);
-
-    /// @notice Forwards a deposit to the specified AlgebraVault after input validation.
+    /// @notice Forwards a deposit to the specified AlgebraVaultStable after input validation.
     /// @dev Emits a DepositForwarded event upon success.
-    /// @param vault The address of the AlgebraVault to deposit into.
+    /// @param vault The address of the AlgebraVaultStable to deposit into.
     /// @param vaultDeployer The address of the vault deployer.
-    /// @param token The address of the token being deposited.
-    /// @param amount The amount of the token being deposited.
+    /// @param token0 The address of the token0 being deposited.
+    /// @param amount0 The amount of the token0 being deposited.
+    /// @param token1 The address of the token1 being deposited.
+    /// @param amount1 The amount of the token1 being deposited.
     /// @param minimumProceeds The minimum amount of vault tokens to be received.
     /// @param to The address to receive the vault tokens.
     /// @return vaultTokens The number of vault tokens received.
-    function forwardDepositToAlgebraVault(
+    function forwardDepositToAlgebraVaultStable(
         address vault,
         address vaultDeployer,
-        address token,
-        uint256 amount,
+        address token0,
+        uint256 amount0,
+        address token1,
+        uint256 amount1,
         uint256 minimumProceeds,
         address to
     ) external returns (uint256 vaultTokens);
 
-    /// @notice Forwards a native currency (e.g., ETH) deposit to an AlgebraVault.
-    /// @dev Converts the native currency to Wrapped Native Token before deposit.
-    /// @param vault The address of the AlgebraVault to deposit into.
-    /// @param vaultDeployer The address of the vault deployer.
-    /// @param minimumProceeds The minimum amount of vault tokens to be received.
-    /// @param to The address to receive the vault tokens.
-    /// @return vaultTokens The number of vault tokens received.
-    function forwardNativeDepositToAlgebraVault(
-        address vault,
-        address vaultDeployer,
-        uint256 minimumProceeds,
-        address to
-    ) external payable returns (uint256 vaultTokens);
 
-    /// @notice Forwards a request to withdraw from an AlgebraVault.
-    /// @param vault The address of the AlgebraVault to withdraw from.
+    /// @notice Forwards a request to withdraw from an AlgebraVaultStable.
+    /// @param vault The address of the AlgebraVaultStable to withdraw from.
     /// @param vaultDeployer The address of the vault deployer.
     /// @param shares The amount of shares to withdraw.
     /// @param to The address to receive the withdrawn tokens.
@@ -74,26 +60,7 @@ interface IAlgebraVaultStableDepositGuard {
     /// @param minAmount1 The minimum amount of token1 expected to receive.
     /// @return amount0 The amount of token0 received.
     /// @return amount1 The amount of token1 received.
-    function forwardWithdrawFromAlgebraVault(
-        address vault,
-        address vaultDeployer,
-        uint256 shares,
-        address to,
-        uint256 minAmount0,
-        uint256 minAmount1
-    ) external returns (uint256 amount0, uint256 amount1);
-
-    /// @notice Forwards a request to withdraw native currency from an AlgebraVault.
-    /// @dev Converts the Wrapped Native Tokens back to native currency on withdrawal.
-    /// @param vault The address of the AlgebraVault to withdraw from.
-    /// @param vaultDeployer The address of the vault deployer.
-    /// @param shares The amount of shares to withdraw.
-    /// @param to The address to receive the withdrawn native currency.
-    /// @param minAmount0 The minimum amount of token0 expected to receive.
-    /// @param minAmount1 The minimum amount of token1 expected to receive.
-    /// @return amount0 The amount of token0 received.
-    /// @return amount1 The amount of token1 received.
-    function forwardNativeWithdrawFromAlgebraVault(
+    function forwardWithdrawFromAlgebraVaultStable(
         address vault,
         address vaultDeployer,
         uint256 shares,

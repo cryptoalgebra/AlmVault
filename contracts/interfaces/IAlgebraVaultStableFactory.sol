@@ -11,11 +11,11 @@ interface IAlgebraVaultStableFactory {
 
     event BaseFeeSplit(address indexed sender, uint256 baseFeeSplit);
 
-    event DeployAlgebraVaultFactory(address indexed sender, address algebraFactory);
+    event DeployAlgebraVaultStableFactory(address indexed sender, address algebraFactory);
 
     event AlgebraVaultStableCreated(
         address indexed sender,
-        address algebraVault,
+        address algebraVaultStable,
         address tokenA,
         address tokenB,
         uint256 count
@@ -25,7 +25,7 @@ interface IAlgebraVaultStableFactory {
 
     function REBALANCER_ROLE() external view returns (bytes32);
 
-    function getAlgebraVault(bytes32 vaultKey) external view returns(address);
+    function getAlgebraVaultStable(bytes32 vaultKey) external view returns(address);
 
     function algebraFactory() external view returns (address);
 
@@ -51,10 +51,10 @@ interface IAlgebraVaultStableFactory {
 
     function setBaseFeeSplit(uint256 _baseFeeSplit) external;
 
-    function createAlgebraVault(
+    function createAlgebraVaultStable(
         address tokenA,
         address tokenB
-    ) external returns (address algebraVault);
+    ) external returns (address algebraVaultStable);
 
     function genKey(
         address deployer,

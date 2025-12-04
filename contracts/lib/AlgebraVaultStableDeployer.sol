@@ -4,7 +4,7 @@ pragma solidity >=0.8.4;
 import { AlgebraVaultStable } from "../AlgebraVaultStable.sol";
 
 library AlgebraVaultStableDeployer {
-    function createAlgebraVault(
+    function createAlgebraVaultStable(
         address pool,
         uint32 twapPeriod,
         uint256 vaultIndex

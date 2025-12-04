@@ -28,11 +28,11 @@ contract AlgebraVaultStableFactory is IAlgebraVaultStableFactory, ReentrancyGuar
     uint256 public override baseFee;
     uint256 public override baseFeeSplit;
 
-    mapping(bytes32 => address) public getAlgebraVault;
+    mapping(bytes32 => address) public getAlgebraVaultStable;
     address[] public allVaults;
 
     /**
-     @notice creates an instance of AlgebraVaultFactory
+     @notice creates an instance of AlgebraVaultStableFactory
      @param _algebraFactory Algebra Integral factory
      @param _pluginDeployer Address of the plugin factory used for pool's plugin deployment.
      @param _nftManager Address of the Algebra NFT position manager.
@@ -57,29 +57,29 @@ contract AlgebraVaultStableFactory is IAlgebraVaultStableFactory, ReentrancyGuar
         _grantRole(MANAGER_ROLE, msg.sender);
         _grantRole(REBALANCER_ROLE, msg.sender);
 
-        emit DeployAlgebraVaultFactory(msg.sender, _algebraFactory);
+        emit DeployAlgebraVaultStableFactory(msg.sender, _algebraFactory);
     }
 
     /**
-     @notice Creates an AlgebraVault for specified tokenA/tokenB for stablecoins.
+     @notice Creates an AlgebraVaultStable for specified tokenA/tokenB for stablecoins.
      Both tokens are allowed for deposits.
      @param tokenA TokenA of the Algebra V1 pool.
      @param tokenB TokenB of the Algebra V1 pool.
-     @return algebraVault Address of the newly created AlgebraVault.
+     @return algebraVault Address of the newly created AlgebraVaultStable.
      */
-    function createAlgebraVault(
+    function createAlgebraVaultStable(
         address tokenA,
         address tokenB
     ) external override onlyRole(MANAGER_ROLE) nonReentrant returns (address algebraVault) {
-        require(tokenA != tokenB, "AVF.createAlgebraVault: identical tokens");
+        require(tokenA != tokenB, "AVF.createAlgebraVaultStable: identical tokens");
 
         (address token0, address token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
 
-        require(token0 != NULL_ADDRESS, "AVF.createAlgebraVault: zero address");
+        require(token0 != NULL_ADDRESS, "AVF.createAlgebraVaultStable: zero address");
 
         require(
-            getAlgebraVault[genKey(msg.sender, token0, token1)] == NULL_ADDRESS,
-            "AVF.createAlgebraVault: vault exists"
+            getAlgebraVaultStable[genKey(msg.sender, token0, token1)] == NULL_ADDRESS,
+            "AVF.createAlgebraVaultStable: vault exists"
         );
 
         address pool;
@@ -89,21 +89,21 @@ contract AlgebraVaultStableFactory is IAlgebraVaultStableFactory, ReentrancyGuar
             pool = IAlgebraFactory(algebraFactory).poolByPair(tokenA, tokenB);
         }
 
-        require(pool != NULL_ADDRESS, "AVF.createAlgebraVault: pool must exist");
+        require(pool != NULL_ADDRESS, "AVF.createAlgebraVaultStable: pool must exist");
 
         (, , , , , bool unlocked) = IAlgebraPool(pool).globalState();
 
-        require(unlocked, "AVF.createAlgebraVault: pool is locked");
+        require(unlocked, "AVF.createAlgebraVaultStable: pool is locked");
 
-        algebraVault = AlgebraVaultStableDeployer.createAlgebraVault(
+        algebraVault = AlgebraVaultStableDeployer.createAlgebraVaultStable(
             pool,
             DEFAULT_TWAP_PERIOD,
             allVaults.length
         );
 
         // populate mapping in the reverse direction
-        getAlgebraVault[genKey(msg.sender, token0, token1)] = algebraVault;
-        getAlgebraVault[genKey(msg.sender, token1, token0)] = algebraVault;
+        getAlgebraVaultStable[genKey(msg.sender, token0, token1)] = algebraVault;
+        getAlgebraVaultStable[genKey(msg.sender, token1, token0)] = algebraVault;
         allVaults.push(algebraVault);
 
         emit AlgebraVaultStableCreated(msg.sender, algebraVault, token0, token1, allVaults.length);
@@ -151,7 +151,7 @@ contract AlgebraVaultStableFactory is IAlgebraVaultStableFactory, ReentrancyGuar
     }
 
     /**
-     * @notice generate a key for getAlgebraVault
+     * @notice generate a key for getAlgebraVaultStable
      * @param deployer vault creator
      * @param token0 the first of two tokens in the vault
      * @param token1 the second of two tokens in the vault
