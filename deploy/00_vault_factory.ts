@@ -2,10 +2,10 @@ import { UV3Math, AlgebraVaultFactory, AlgebraVaultDepositGuard } from "../types
 import hre from "hardhat";
 
 async function main() {
-    const algebraFactory = "0x9bf6453A15eD1eE6111A4DE8F03F9be34c63FE98";
+    const algebraFactory = "0x3459670786E3ea7AEB1e09518D89eB277A23C68c";
     const pluginDeployer = "0x0000000000000000000000000000000000000000";
-    const nftManager = "0xec7d7054D39416BBD8c4784eaa7790516B401532";
-    const eternalFarming = "0x8440352A89534588078D3286D4b4be9e7F50F819";
+    const nftManager = "0x6dCbcdFE2cBB450BAb3D32BcB5661993D1712732";
+    const eternalFarming = "0xa744153cd2414ae55D6aEe925d2f791A74d50d2D";
     const wrapNative = "0x4200000000000000000000000000000000000006";
 
     const feeRecipient = "0xDeaD1F5aF792afc125812E875A891b038f888258";

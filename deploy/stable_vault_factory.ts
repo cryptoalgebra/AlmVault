@@ -38,7 +38,7 @@ async function main() {
     await algebraVaultFactory.waitForDeployment();
 
     const factoryAddress = await algebraVaultFactory.getAddress();
-    console.log("AlgebraVaultFactory deployed to:", factoryAddress);
+    console.log("AlgebraVaultStableFactory deployed to:", factoryAddress);
 
     console.log("Setting fee recipient to:", feeRecipient);
     let tx = await algebraVaultFactory.setFeeRecipient(feeRecipient);
@@ -57,7 +57,7 @@ async function main() {
     await algebraVaultDepositGuard.waitForDeployment();
 
     const guardAddress = await algebraVaultDepositGuard.getAddress();
-    console.log("AlgebraVaultDepositGuard deployed to:", guardAddress);
+    console.log("AlgebraVaultStableDepositGuard deployed to:", guardAddress);
 
     await hre.run("verify:verify", {
         address: guardAddress,
