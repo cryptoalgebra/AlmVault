@@ -48,14 +48,12 @@ async function main() {
     console.log("AlgebraVaultFactory deployed to:", factoryAddress);
 
     console.log("Setting fee recipient to:", feeRecipient);
-    let tx = await algebraVaultFactory.setFeeRecipient(feeRecipient);
-    await tx.wait();
+    await algebraVaultFactory.setFeeRecipient(feeRecipient);
 
     console.log("Setting AMM fees...");
-    tx = await algebraVaultFactory.setAmmFee(ammFee);
-    await tx.wait();
-    tx = await algebraVaultFactory.setBaseFee(baseFee);
-    await tx.wait();
+    await algebraVaultFactory.setAmmFee(ammFee);
+    
+    await algebraVaultFactory.setBaseFee(baseFee);
 
     const algebraVaultDepositGuardFactory = await hre.ethers.getContractFactory("AlgebraVaultDepositGuard");
     const algebraVaultDepositGuard = await algebraVaultDepositGuardFactory.deploy(

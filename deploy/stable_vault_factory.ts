@@ -25,7 +25,7 @@ async function main() {
 
     const AlgebraVaultStableFactoryFactory = await hre.ethers.getContractFactory("AlgebraVaultStableFactory", {
         libraries: {
-            AlgebraVaultDeployer: await libAlgebraVaultStableDeployer.getAddress()
+            AlgebraVaultStableDeployer: await libAlgebraVaultStableDeployer.getAddress()
         },
     });
 
@@ -41,14 +41,12 @@ async function main() {
     console.log("AlgebraVaultStableFactory deployed to:", factoryAddress);
 
     console.log("Setting fee recipient to:", feeRecipient);
-    let tx = await algebraVaultFactory.setFeeRecipient(feeRecipient);
-    await tx.wait();
+    await algebraVaultFactory.setFeeRecipient(feeRecipient);
 
     console.log("Setting AMM fees...");
-    tx = await algebraVaultFactory.setAmmFee(ammFee);
-    await tx.wait();
-    tx = await algebraVaultFactory.setBaseFee(baseFee);
-    await tx.wait();
+    await algebraVaultFactory.setAmmFee(ammFee);
+
+    await algebraVaultFactory.setBaseFee(baseFee);
 
     const algebraVaultDepositGuardFactory = await hre.ethers.getContractFactory("AlgebraVaultStableDepositGuard");
     const algebraVaultDepositGuard = await algebraVaultDepositGuardFactory.deploy(
