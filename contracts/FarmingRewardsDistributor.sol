@@ -286,11 +286,12 @@ contract FarmingRewardsDistributor is IFarmingRewardsDistributor, Pausable {
 
         claimableAmounts = new uint256[](_rewardTokens.length);
 
+        _updateReward();
+
         for (uint256 i; i < _rewardTokens.length; i++) {
             address token = _rewardTokens[i];
             if (!rewardTokensSet.contains(token)) revert InvalidRewardToken();
             RewardData storage r = rewardData[token];
-            _updateReward();
             _calculateClaimable(_user, token);
             if (claimable[token][_user] > 0) {
                 // we store the claimableAmount for this current rewardToken
