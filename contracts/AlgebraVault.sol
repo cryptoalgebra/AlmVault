@@ -605,7 +605,7 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         uint256 totalSupply,
         address to
     ) internal returns (uint256 amount0, uint256 amount1) {
-        // this function is always called after _cleanPositions is aleady called
+        // this function is always called after _cleanPositions is already called
 
         // Get position info
         (
