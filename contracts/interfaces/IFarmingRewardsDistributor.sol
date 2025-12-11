@@ -34,9 +34,6 @@ interface IFarmingRewardsDistributor {
     /// @notice rewardToken => user => claimable amount
     function claimable(address, address) external view returns (uint256);
 
-    /// @notice Addresses approved to call mint
-    function managers(address) external view returns (bool);
-
     event Stake(
         address indexed user,
         uint256 amount

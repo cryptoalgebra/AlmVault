@@ -47,11 +47,6 @@ contract FarmingRewardsDistributor is IFarmingRewardsDistributor, Pausable {
     /// @notice rewardToken => user => claimable amount
     mapping(address => mapping(address => uint256)) public override claimable;
 
-    /********************** Other Info ***********************/
-
-    /// @notice Addresses approved to call mint
-    mapping(address => bool) public override managers;
-
     function _checkManager() private view {
         if (!IAccessControl(algebraVaultFactory).hasRole(
             IAlgebraVaultFactory(algebraVaultFactory).MANAGER_ROLE(),
