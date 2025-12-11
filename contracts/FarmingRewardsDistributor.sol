@@ -75,6 +75,7 @@ contract FarmingRewardsDistributor is IFarmingRewardsDistributor, Pausable {
      */
     function addReward(address _rewardToken) external onlyManager override {
         if (_rewardToken == address(0)) revert InvalidBurn();
+        if (_rewardToken == stakingToken) revert IsStakingToken();
         for (uint i; i < rewardTokens.length; i ++) {
             if (rewardTokens[i] == _rewardToken) revert ActiveReward();
         }
