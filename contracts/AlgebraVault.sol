@@ -127,8 +127,8 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         affiliate = NULL_ADDRESS; // by default there is no affiliate address
 
         // Approve NFT manager to spend tokens
-        IERC20(token0).approve(IAlgebraVaultFactory(algebraVaultFactory).nftManager(), type(uint256).max);
-        IERC20(token1).approve(IAlgebraVaultFactory(algebraVaultFactory).nftManager(), type(uint256).max);
+        IERC20(token0).forceApprove(IAlgebraVaultFactory(algebraVaultFactory).nftManager(), type(uint256).max);
+        IERC20(token1).forceApprove(IAlgebraVaultFactory(algebraVaultFactory).nftManager(), type(uint256).max);
 
         emit DeployAlgebraVault(msg.sender, _pool, _allowToken0, _allowToken1, _twapPeriod);
     }
