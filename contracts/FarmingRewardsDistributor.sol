@@ -5,6 +5,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
+import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { Pausable } from "@openzeppelin/contracts/security/Pausable.sol";
 
 import { IAlgebraVault } from "./interfaces/IAlgebraVault.sol";
@@ -14,6 +15,7 @@ import { IFarmingRewardsDistributor } from "./interfaces/IFarmingRewardsDistribu
 /// @title Farming Rewards Distributor
 contract FarmingRewardsDistributor is IFarmingRewardsDistributor, Pausable {
     using SafeERC20 for IERC20;
+    using EnumerableSet for EnumerableSet.AddressSet;
 
     /********************** Contract Addresses ***********************/
 
@@ -35,6 +37,9 @@ contract FarmingRewardsDistributor is IFarmingRewardsDistributor, Pausable {
 
     /// @notice Reward tokens being distributed
     address[] public override rewardTokens;
+
+    /// @notice Set of whitelisted reward tokens
+    EnumerableSet.AddressSet private rewardTokensSet;
 
     /// @notice address => RPT
     mapping(address => RewardData) public override rewardData;
@@ -79,6 +84,7 @@ contract FarmingRewardsDistributor is IFarmingRewardsDistributor, Pausable {
             if (rewardTokens[i] == _rewardToken) revert ActiveReward();
         }
         rewardTokens.push(_rewardToken);
+        rewardTokensSet.add(_rewardToken);
     }
 
     /********************** View functions ***********************/
@@ -286,6 +292,7 @@ contract FarmingRewardsDistributor is IFarmingRewardsDistributor, Pausable {
 
         for (uint256 i; i < _rewardTokens.length; i++) {
             address token = _rewardTokens[i];
+            if (!rewardTokensSet.contains(token)) revert InvalidRewardToken();
             RewardData storage r = rewardData[token];
             _updateReward();
             _calculateClaimable(_user, token);

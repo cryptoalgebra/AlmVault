@@ -60,6 +60,7 @@ interface IFarmingRewardsDistributor {
     error ActiveReward();
     error IsStakingToken();
     error InvalidAmount();
+    error InvalidRewardToken();
 
     /**
      * @notice Add a new reward token to be distributed to stakers.
