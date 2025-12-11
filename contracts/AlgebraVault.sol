@@ -39,7 +39,7 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
     uint256 public constant PRECISION = 10 ** 18;
     uint256 constant PERCENT = 100;
     address constant NULL_ADDRESS = address(0);
-    uint256 constant MIN_SHARES = 1000;
+    uint256 constant MIN_SHARES = 1e6;
 
     address public immutable override algebraVaultFactory;
     address public immutable override pool;
@@ -581,6 +581,7 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
             uint256 priceForPool = _getConservativePrice(price, twap, auxTwap, true);
             uint256 pool0PricedInToken1 = pool0.mul(priceForPool).div(PRECISION);
             shares = shares.mul(_totalSupply).div(pool0PricedInToken1.add(pool1));
+            if (shares == 0) revert InvalidDeposit();
         } else {
             shares = shares.mul(MIN_SHARES);
         }
