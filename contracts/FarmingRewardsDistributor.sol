@@ -298,12 +298,14 @@ contract FarmingRewardsDistributor is IFarmingRewardsDistributor, Pausable {
             _calculateClaimable(_user, token);
             if (claimable[token][_user] > 0) {
                 // we store the claimableAmount for this current rewardToken
-                claimableAmounts[i] = claimable[token][_user];
+                uint256 claimableAmount = claimable[token][_user];
+                claimableAmounts[i] = claimableAmount;
 
-                IERC20(token).safeTransfer(_user, claimable[token][_user]);
-                r.amount -= claimable[token][_user];
-                emit RewardPaid(_user, token, claimable[token][_user]);
+                r.amount -= claimableAmount;
                 claimable[token][_user] = 0;
+
+                IERC20(token).safeTransfer(_user, claimableAmount);
+                emit RewardPaid(_user, token, claimableAmount);
             }
         }
     }
