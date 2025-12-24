@@ -34,9 +34,6 @@ interface IFarmingRewardsDistributor {
     /// @notice rewardToken => user => claimable amount
     function claimable(address, address) external view returns (uint256);
 
-    /// @notice Addresses approved to call mint
-    function managers(address) external view returns (bool);
-
     event Stake(
         address indexed user,
         uint256 amount
@@ -60,6 +57,7 @@ interface IFarmingRewardsDistributor {
     error ActiveReward();
     error IsStakingToken();
     error InvalidAmount();
+    error InvalidRewardToken();
 
     /**
      * @notice Add a new reward token to be distributed to stakers.

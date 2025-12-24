@@ -151,11 +151,13 @@ contract AlgebraVaultDepositGuard is IAlgebraVaultDepositGuard, ReentrancyGuard 
             (amount0, amount1) = algebraVault.withdraw(shares, address(this));
             if (token0 == WRAPPED_NATIVE) {
                 IWRAPPED_NATIVE(WRAPPED_NATIVE).withdraw(amount0);
-                payable(to).transfer(amount0);
+                (bool success, ) = payable(to).call{value: amount0}("");
+                require(success, "ETH transfer failed");
                 IERC20(token1).safeTransfer(to, amount1);
             } else {
                 IWRAPPED_NATIVE(WRAPPED_NATIVE).withdraw(amount1);
-                payable(to).transfer(amount1);
+                (bool success, ) = payable(to).call{value: amount1}("");
+                require(success, "ETH transfer failed");
                 IERC20(token0).safeTransfer(to, amount0);
             }
         } else {

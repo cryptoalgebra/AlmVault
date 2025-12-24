@@ -39,7 +39,7 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
     uint256 public constant PRECISION = 10 ** 18;
     uint256 constant PERCENT = 100;
     address constant NULL_ADDRESS = address(0);
-    uint256 constant MIN_SHARES = 1000;
+    uint256 constant MIN_SHARES = 1e6;
 
     address public immutable override algebraVaultFactory;
     address public immutable override pool;
@@ -127,8 +127,8 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         affiliate = NULL_ADDRESS; // by default there is no affiliate address
 
         // Approve NFT manager to spend tokens
-        IERC20(token0).approve(IAlgebraVaultFactory(algebraVaultFactory).nftManager(), type(uint256).max);
-        IERC20(token1).approve(IAlgebraVaultFactory(algebraVaultFactory).nftManager(), type(uint256).max);
+        IERC20(token0).forceApprove(IAlgebraVaultFactory(algebraVaultFactory).nftManager(), type(uint256).max);
+        IERC20(token1).forceApprove(IAlgebraVaultFactory(algebraVaultFactory).nftManager(), type(uint256).max);
 
         emit DeployAlgebraVault(msg.sender, _pool, _allowToken0, _allowToken1, _twapPeriod);
     }
@@ -581,6 +581,7 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
             uint256 priceForPool = _getConservativePrice(price, twap, auxTwap, true);
             uint256 pool0PricedInToken1 = pool0.mul(priceForPool).div(PRECISION);
             shares = shares.mul(_totalSupply).div(pool0PricedInToken1.add(pool1));
+            if (shares == 0) revert InvalidDeposit();
         } else {
             shares = shares.mul(MIN_SHARES);
         }
@@ -604,7 +605,7 @@ contract AlgebraVault is IAlgebraVault, IAlgebraSwapCallback, ERC20, ReentrancyG
         uint256 totalSupply,
         address to
     ) internal returns (uint256 amount0, uint256 amount1) {
-        // this function is always called after _cleanPositions is aleady called
+        // this function is always called after _cleanPositions is already called
 
         // Get position info
         (

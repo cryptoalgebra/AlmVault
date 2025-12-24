@@ -26,7 +26,7 @@ import { ethers, network } from "hardhat";
 const NULL_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 const largeTokenAmount = ethers.parseEther("1000000");
-const veryLargeTokenAmount = ethers.parseEther("10000000000");
+const veryLargeTokenAmount = ethers.parseEther("100000000000");
 const giantTokenAmount = ethers.parseEther("1000000000000");
 
 describe("Farming Integration", () => {
@@ -773,14 +773,14 @@ describe("Farming Integration", () => {
 
           await farmingRewardsDistributor
             .connect(alice)
-            .stake(lpBalance - 1000n, await alice.getAddress());
+            .stake(lpBalance - 1000000n, await alice.getAddress());
 
           const rewardsBeforeData = await token2.balanceOf(
             await farmingRewardsDistributor.getAddress()
           );
 
           await network.provider.send("evm_increaseTime", [7200]);
-          await algebraVault.connect(alice).withdraw(1000, await alice.getAddress());
+          await algebraVault.connect(alice).withdraw(1000000, await alice.getAddress());
 
           const rewardsAfterData = await token2.balanceOf(
             await farmingRewardsDistributor.getAddress()
@@ -919,6 +919,10 @@ describe("Farming Integration", () => {
           "FarmingRewardsDistributor",
           await algebraVault.farmingRewardsDistributor()
         )) as IFarmingRewardsDistributor;
+
+        // Add reward tokens to whitelist
+        await farmingRewardsDistributor.addReward(await token2.getAddress());
+        await farmingRewardsDistributor.addReward(await token1.getAddress());
 
         await token0.approve(await algebraVault.getAddress(), veryLargeTokenAmount);
         await token1.approve(await algebraVault.getAddress(), veryLargeTokenAmount);

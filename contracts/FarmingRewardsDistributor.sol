@@ -5,6 +5,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
+import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { Pausable } from "@openzeppelin/contracts/security/Pausable.sol";
 
 import { IAlgebraVault } from "./interfaces/IAlgebraVault.sol";
@@ -14,6 +15,7 @@ import { IFarmingRewardsDistributor } from "./interfaces/IFarmingRewardsDistribu
 /// @title Farming Rewards Distributor
 contract FarmingRewardsDistributor is IFarmingRewardsDistributor, Pausable {
     using SafeERC20 for IERC20;
+    using EnumerableSet for EnumerableSet.AddressSet;
 
     /********************** Contract Addresses ***********************/
 
@@ -36,16 +38,14 @@ contract FarmingRewardsDistributor is IFarmingRewardsDistributor, Pausable {
     /// @notice Reward tokens being distributed
     address[] public override rewardTokens;
 
+    /// @notice Set of whitelisted reward tokens
+    EnumerableSet.AddressSet private rewardTokensSet;
+
     /// @notice address => RPT
     mapping(address => RewardData) public override rewardData;
 
     /// @notice rewardToken => user => claimable amount
     mapping(address => mapping(address => uint256)) public override claimable;
-
-    /********************** Other Info ***********************/
-
-    /// @notice Addresses approved to call mint
-    mapping(address => bool) public override managers;
 
     function _checkManager() private view {
         if (!IAccessControl(algebraVaultFactory).hasRole(
@@ -75,10 +75,12 @@ contract FarmingRewardsDistributor is IFarmingRewardsDistributor, Pausable {
      */
     function addReward(address _rewardToken) external onlyManager override {
         if (_rewardToken == address(0)) revert InvalidBurn();
+        if (_rewardToken == stakingToken) revert IsStakingToken();
         for (uint i; i < rewardTokens.length; i ++) {
             if (rewardTokens[i] == _rewardToken) revert ActiveReward();
         }
         rewardTokens.push(_rewardToken);
+        rewardTokensSet.add(_rewardToken);
     }
 
     /********************** View functions ***********************/
@@ -284,19 +286,23 @@ contract FarmingRewardsDistributor is IFarmingRewardsDistributor, Pausable {
 
         claimableAmounts = new uint256[](_rewardTokens.length);
 
+        _updateReward();
+
         for (uint256 i; i < _rewardTokens.length; i++) {
             address token = _rewardTokens[i];
+            if (!rewardTokensSet.contains(token)) revert InvalidRewardToken();
             RewardData storage r = rewardData[token];
-            _updateReward();
             _calculateClaimable(_user, token);
             if (claimable[token][_user] > 0) {
                 // we store the claimableAmount for this current rewardToken
-                claimableAmounts[i] = claimable[token][_user];
+                uint256 claimableAmount = claimable[token][_user];
+                claimableAmounts[i] = claimableAmount;
 
-                IERC20(token).safeTransfer(_user, claimable[token][_user]);
-                r.amount -= claimable[token][_user];
-                emit RewardPaid(_user, token, claimable[token][_user]);
+                r.amount -= claimableAmount;
                 claimable[token][_user] = 0;
+
+                IERC20(token).safeTransfer(_user, claimableAmount);
+                emit RewardPaid(_user, token, claimableAmount);
             }
         }
     }

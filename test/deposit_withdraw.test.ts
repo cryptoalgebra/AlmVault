@@ -30,7 +30,7 @@ const PERCENT_40 = "400000000000000000";
 const PERCENT_20 = "200000000000000000";
 const PERCENT_10 = "100000000000000000";
 
-const MIN_SHARES = 1000;
+const MIN_SHARES = 1000000;
 
 const smallTokenAmount = ethers.parseEther("1000");
 const largeTokenAmount = ethers.parseEther("1000000");
