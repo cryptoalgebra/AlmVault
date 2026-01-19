@@ -43,28 +43,8 @@ const config: HardhatUserConfig = {
     }
   },
   etherscan: {
-    apiKey: {
-      base: ETHERSCAN_API_KEY,
-      baseTestnet: ETHERSCAN_API_KEY,
-      hyper: ETHERSCAN_API_KEY
-    },
+    apiKey: ETHERSCAN_API_KEY,
     customChains: [
-      {
-        network: 'baseTestnet',
-        chainId: 84532,
-        urls: {
-          apiURL: 'https://api-sepolia.basescan.org/api',
-          browserURL: 'https://sepolia.basescan.org/',
-        },
-      },
-      {
-        network: 'base',
-        chainId: 8453,
-        urls: {
-          apiURL: 'https://api.basescan.org/api',
-          browserURL: 'https://basescan.org/',
-        },
-      },
       {
         network: 'hyper',
         chainId: 999,
