@@ -40,10 +40,16 @@ const config: HardhatUserConfig = {
       url: `https://rpc.hypurrscan.io`,
       chainId: 999,
       accounts: [`0x${MNEMONIC || '1000000000000000000000000000000000000000000000000000000000000000'}`],
-    }
+    },
+    skaleBaseTestnet: {
+      url: 	"https://base-sepolia-testnet.skalenodes.com/v1/jubilant-horrible-ancha",
+      accounts: [`0x${MNEMONIC || '1000000000000000000000000000000000000000000000000000000000000000'}`],
+      chainId: 324705682,
+      timeout: 120000
+    },
   },
   etherscan: {
-    apiKey: ETHERSCAN_API_KEY,
+    apiKey: { skaleBaseTestnet: process.env.ETHERSCAN_API_KEY },
     customChains: [
       {
         network: 'hyper',
@@ -52,7 +58,15 @@ const config: HardhatUserConfig = {
           apiURL: 'https://www.hyperscan.com/api',
           browserURL: 'https://www.hyperscan.com/',
         },
-      }
+      },
+      {
+          network: 'skaleBaseTestnet',
+          chainId: 324705682,
+          urls: {
+          apiURL: 'https://base-sepolia-testnet-explorer.skalenodes.com/api',
+          browserURL: 'https://base-sepolia-testnet-explorer.skalenodes.com/',
+          },
+      },
     ]
   }
 };
