@@ -69,7 +69,7 @@ describe("Access Control Checks", () => {
     await uniswapPool.initialize(encodePriceSqrt("1", "1"));
     await uniswapPool2.initialize(encodePriceSqrt("1", "1"));
 
-    await algebraVaultStableFactory.connect(wallet).createAlgebraVault(await token0.getAddress(), await token1.getAddress());
+    await algebraVaultStableFactory.connect(wallet).createAlgebraVaultStable(await token0.getAddress(), await token1.getAddress());
 
     const algebraVaultStableAddress = await algebraVaultStableFactory.allVaults(0);
     algebraVaultStable = (await ethers.getContractAt("AlgebraVaultStable", algebraVaultStableAddress)) as AlgebraVaultStable;
@@ -156,7 +156,7 @@ describe("Input Validation Checks", () => {
     uniswapPool = (await ethers.getContractAt("IAlgebraPool", poolAddress)) as IAlgebraPool;
     await uniswapPool.initialize(encodePriceSqrt("1", "1"));
 
-    const tx = await algebraVaultStableFactory.connect(wallet).createAlgebraVault(await token0.getAddress(), await token1.getAddress());
+    const tx = await algebraVaultStableFactory.connect(wallet).createAlgebraVaultStable(await token0.getAddress(), await token1.getAddress());
 
     const algebraVaultStableAddress = await algebraVaultStableFactory.allVaults(0);
     algebraVaultStable = (await ethers.getContractAt("AlgebraVaultStable", algebraVaultStableAddress)) as AlgebraVaultStable;
@@ -233,28 +233,28 @@ describe("Input Validation Checks", () => {
   });
 
   it("algebraVaultStableFactory - createAlgebraVault", async () => {
-    const msg1 = "AVF.createAlgebraVault: identical tokens",
-      msg2 = "AVF.createAlgebraVault: zero address",
-      msg4 = "AVF.createAlgebraVault: vault exists",
-      msg6 = "AVF.createAlgebraVault: pool must exist";
+    const msg1 = "AVF.createAlgebraVaultStable: identical tokens",
+      msg2 = "AVF.createAlgebraVaultStable: zero address",
+      msg4 = "AVF.createAlgebraVaultStable: vault exists",
+      msg6 = "AVF.createAlgebraVaultStable: pool must exist";
 
     await expect(
-      algebraVaultStableFactory.connect(wallet).createAlgebraVault(await token0.getAddress(), await token0.getAddress()),
+      algebraVaultStableFactory.connect(wallet).createAlgebraVaultStable(await token0.getAddress(), await token0.getAddress()),
     ).to.be.revertedWith(msg1);
     await expect(
-      algebraVaultStableFactory.connect(wallet).createAlgebraVault(NULL_ADDRESS, await token1.getAddress()),
+      algebraVaultStableFactory.connect(wallet).createAlgebraVaultStable(NULL_ADDRESS, await token1.getAddress()),
     ).to.be.revertedWith(msg2);
     await expect(
-      algebraVaultStableFactory.connect(wallet).createAlgebraVault(await token0.getAddress(), NULL_ADDRESS),
+      algebraVaultStableFactory.connect(wallet).createAlgebraVaultStable(await token0.getAddress(), NULL_ADDRESS),
     ).to.be.revertedWith(msg2);
     await expect(
-      algebraVaultStableFactory.connect(wallet).createAlgebraVault(await token0.getAddress(), await token1.getAddress()),
+      algebraVaultStableFactory.connect(wallet).createAlgebraVaultStable(await token0.getAddress(), await token1.getAddress()),
     ).to.be.revertedWith(msg4);
     await expect(
-      algebraVaultStableFactory.connect(wallet).createAlgebraVault(await token0.getAddress(), await token1.getAddress()),
+      algebraVaultStableFactory.connect(wallet).createAlgebraVaultStable(await token0.getAddress(), await token1.getAddress()),
     ).to.be.revertedWith(msg4);
     await expect(
-      algebraVaultStableFactory.connect(wallet).createAlgebraVault(await token0.getAddress(), await token2.getAddress()),
+      algebraVaultStableFactory.connect(wallet).createAlgebraVaultStable(await token0.getAddress(), await token2.getAddress()),
     ).to.be.revertedWith(msg6);
 
     await factory.createPool(await token0.getAddress(), await token2.getAddress(), '0x');
@@ -262,7 +262,7 @@ describe("Input Validation Checks", () => {
     uniswapPool = (await ethers.getContractAt("IAlgebraPool", poolAddress)) as IAlgebraPool;
     await uniswapPool.initialize(encodePriceSqrt("1", "1"));
 
-    await algebraVaultStableFactory.connect(wallet).createAlgebraVault(await token0.getAddress(), await token2.getAddress());
+    await algebraVaultStableFactory.connect(wallet).createAlgebraVaultStable(await token0.getAddress(), await token2.getAddress());
   });
 
   function msg(text: string) {
@@ -295,10 +295,10 @@ describe("Input Validation Checks", () => {
     let poolAddress = await factory.poolByPair(await token0.getAddress(), await token2.getAddress());
     let uniswapPool = (await ethers.getContractAt("IAlgebraPool", poolAddress)) as IAlgebraPool;
 
-    await algebraVaultStableFactory.connect(wallet).createAlgebraVault(await token0.getAddress(), await token2.getAddress());
+    await algebraVaultStableFactory.connect(wallet).createAlgebraVaultStable(await token0.getAddress(), await token2.getAddress());
 
     const vaultKey = await algebraVaultStableFactory.genKey(await wallet.getAddress(), await token0.getAddress(), await token2.getAddress());
-    const algebraVaultStableAddress = await algebraVaultStableFactory.getAlgebraVault(vaultKey);
+    const algebraVaultStableAddress = await algebraVaultStableFactory.getAlgebraVaultStable(vaultKey);
     algebraVaultStable = (await ethers.getContractAt("AlgebraVaultStable", algebraVaultStableAddress)) as AlgebraVaultStable;
 
     const pluginAddress = await uniswapPool.plugin()
@@ -343,12 +343,12 @@ describe("Input Validation Checks", () => {
     await uniswapPool12.initialize(encodePriceSqrt("1", "1"));
     await uniswapPool.initialize(encodePriceSqrt("1", "1"));
 
-    await algebraVaultStableFactory.connect(wallet).createAlgebraVault(await token1.getAddress(), await token2.getAddress());
-    await algebraVaultStableFactory.connect(wallet).createAlgebraVault(await token0.getAddress(), await token2.getAddress());
+    await algebraVaultStableFactory.connect(wallet).createAlgebraVaultStable(await token1.getAddress(), await token2.getAddress());
+    await algebraVaultStableFactory.connect(wallet).createAlgebraVaultStable(await token0.getAddress(), await token2.getAddress());
 
     // check allowToken policy
     let vaultKey = await algebraVaultStableFactory.genKey(await wallet.getAddress(), await token1.getAddress(), await token2.getAddress());
-    let algebraVaultStableAddress = await algebraVaultStableFactory.getAlgebraVault(vaultKey);
+    let algebraVaultStableAddress = await algebraVaultStableFactory.getAlgebraVaultStable(vaultKey);
     algebraVaultStable = (await ethers.getContractAt("AlgebraVaultStable", algebraVaultStableAddress)) as AlgebraVaultStable;
 
     await expect(
@@ -356,7 +356,7 @@ describe("Input Validation Checks", () => {
     ).to.be.revertedWith(msg5);
 
     vaultKey = await algebraVaultStableFactory.genKey(await wallet.getAddress(), await token0.getAddress(), await token2.getAddress());
-    algebraVaultStableAddress = await algebraVaultStableFactory.getAlgebraVault(vaultKey);
+    algebraVaultStableAddress = await algebraVaultStableFactory.getAlgebraVaultStable(vaultKey);
     algebraVaultStable = (await ethers.getContractAt("AlgebraVaultStable", algebraVaultStableAddress)) as AlgebraVaultStable;
 
     // Skip this test since we now don't have allowToken0
@@ -364,18 +364,18 @@ describe("Input Validation Checks", () => {
 
     // check deposit values
     vaultKey = await algebraVaultStableFactory.genKey(await wallet.getAddress(), await token0.getAddress(), await token1.getAddress());
-    algebraVaultStableAddress = await algebraVaultStableFactory.getAlgebraVault(vaultKey);
+    algebraVaultStableAddress = await algebraVaultStableFactory.getAlgebraVaultStable(vaultKey);
     algebraVaultStable = (await ethers.getContractAt("AlgebraVaultStable", algebraVaultStableAddress)) as AlgebraVaultStable;
     await expect(algebraVaultStable.deposit(0, 0, await alice.getAddress())).to.be.revertedWith(msg3);
 
     vaultKey = await algebraVaultStableFactory.genKey(await wallet.getAddress(), await token0.getAddress(), await token2.getAddress());
-    algebraVaultStableAddress = await algebraVaultStableFactory.getAlgebraVault(vaultKey);
+    algebraVaultStableAddress = await algebraVaultStableFactory.getAlgebraVaultStable(vaultKey);
     algebraVaultStable = (await ethers.getContractAt("AlgebraVaultStable", algebraVaultStableAddress)) as AlgebraVaultStable;
     await expect(algebraVaultStable.deposit(0, 0, await alice.getAddress())).to.be.revertedWith(msg3);
 
     // check against max deposit amounts
     vaultKey = await algebraVaultStableFactory.genKey(await wallet.getAddress(), await token0.getAddress(), await token1.getAddress());
-    algebraVaultStableAddress = await algebraVaultStableFactory.getAlgebraVault(vaultKey);
+    algebraVaultStableAddress = await algebraVaultStableFactory.getAlgebraVaultStable(vaultKey);
     algebraVaultStable = (await ethers.getContractAt("AlgebraVaultStable", algebraVaultStableAddress)) as AlgebraVaultStable;
     await expect(
       algebraVaultStable.deposit(ethers.parseEther("200000"), ethers.parseEther("4000"), await alice.getAddress()),
@@ -510,7 +510,7 @@ describe("Input Validation Checks", () => {
 
   it("AlgebraVault - symbol", async () => {
     await factory.createPool(await token1.getAddress(), await token2.getAddress(), '0x');
-    await algebraVaultStableFactory.connect(wallet).createAlgebraVault(await token1.getAddress(), await token2.getAddress());
+    await algebraVaultStableFactory.connect(wallet).createAlgebraVaultStable(await token1.getAddress(), await token2.getAddress());
 
     let algebraVaultStableAddress = await algebraVaultStableFactory.allVaults(0);
     algebraVaultStable = (await ethers.getContractAt("AlgebraVaultStable", algebraVaultStableAddress)) as AlgebraVaultStable;
