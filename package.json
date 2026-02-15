@@ -13,6 +13,7 @@
     "dotenv": "^17.2.3",
     "eslint": "^9.17.0",
     "eslint-config-prettier": "^10.1.8",
+    "mocha-chai-jest-snapshot": "^1.1.7",
     "hardhat": "^2.26.5",
     "hardhat-contract-sizer": "^2.10.1",
     "prettier": "^3.6.2",

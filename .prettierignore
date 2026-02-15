@@ -1,0 +1,8 @@
+node_modules
+artifacts
+cache
+types
+coverage
+typechain-types
+build-info
+artifacts-package
