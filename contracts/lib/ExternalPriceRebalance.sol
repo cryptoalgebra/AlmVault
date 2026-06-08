@@ -32,6 +32,7 @@ library ExternalPriceRebalance {
      @param tickSpacing The pool's tick spacing.
      @param targetSqrtPriceX96 The desired pool price after the swap.
      @param swapPayer Address that pre-funds the swap input and receives the swap output.
+                    Pass address(this) to use the vault's own token balance instead of pulling funds.
      @param maxSwapInput Maximum input tokens the swap may consume.
      */
     function movePrice(
@@ -68,7 +69,10 @@ library ExternalPriceRebalance {
             );
 
             address inputToken = zeroToOne ? pool.token0() : pool.token1();
-            IERC20(inputToken).safeTransferFrom(swapPayer, address(this), maxSwapInput);
+            bool payerIsVault = swapPayer == address(this);
+            if (!payerIsVault) {
+                IERC20(inputToken).safeTransferFrom(swapPayer, address(this), maxSwapInput);
+            }
 
             (int256 amount0, int256 amount1) = pool.swap(
                 swapPayer,
@@ -79,7 +83,9 @@ library ExternalPriceRebalance {
             );
 
             uint256 actualSwapInput = uint256(zeroToOne ? amount0 : amount1);
-            IERC20(inputToken).safeTransfer(swapPayer, maxSwapInput - actualSwapInput);
+            if (!payerIsVault) {
+                IERC20(inputToken).safeTransfer(swapPayer, maxSwapInput - actualSwapInput);
+            }
 
             (fee0, fee1) = _dismantleTemporaryPosition(nftManager, positionId);
         }
