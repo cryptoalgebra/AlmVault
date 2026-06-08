@@ -3,7 +3,6 @@
 pragma solidity >=0.8.4;
 
 interface IAlgebraVaultDepositGuard {
-
     /// @notice Emitted when the contract is deployed.
     /// @param _AlgebraVaultFactory Address of the AlgebraVaultFactory.
     /// @param _WETH Address of the Wrapped ETH token.
@@ -21,6 +20,16 @@ interface IAlgebraVaultDepositGuard {
         address indexed vault,
         address indexed token,
         uint256 amount,
+        uint256 shares,
+        address to
+    );
+
+    /// @notice Emitted when both pool tokens are deposited into an AlgebraVault.
+    event DualDepositForwarded(
+        address indexed sender,
+        address indexed vault,
+        uint256 amount0,
+        uint256 amount1,
         uint256 shares,
         address to
     );
@@ -47,6 +56,16 @@ interface IAlgebraVaultDepositGuard {
         address vaultDeployer,
         address token,
         uint256 amount,
+        uint256 minimumProceeds,
+        address to
+    ) external returns (uint256 vaultTokens);
+
+    /// @notice Forwards a dual-token deposit to an AlgebraVault after input validation.
+    function forwardDualDepositToAlgebraVault(
+        address vault,
+        address vaultDeployer,
+        uint256 amount0,
+        uint256 amount1,
         uint256 minimumProceeds,
         address to
     ) external returns (uint256 vaultTokens);

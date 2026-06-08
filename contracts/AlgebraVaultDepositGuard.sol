@@ -45,6 +45,32 @@ contract AlgebraVaultDepositGuard is IAlgebraVaultDepositGuard, ReentrancyGuard 
     }
 
     /// @inheritdoc IAlgebraVaultDepositGuard
+    function forwardDualDepositToAlgebraVault(
+        address vault,
+        address vaultDeployer,
+        uint256 amount0,
+        uint256 amount1,
+        uint256 minimumProceeds,
+        address to
+    ) external override nonReentrant returns (uint256 vaultTokens) {
+        _validateRecipient(to);
+        (IAlgebraVault algebraVault, address token0, address token1) = _validateVault(vault, vaultDeployer, false);
+
+        require(algebraVault.allowToken0() && algebraVault.allowToken1(), "Dual-token deposits not allowed");
+
+        IERC20(token0).safeTransferFrom(msg.sender, address(this), amount0);
+        IERC20(token1).safeTransferFrom(msg.sender, address(this), amount1);
+
+        IERC20(token0).safeIncreaseAllowance(vault, amount0);
+        IERC20(token1).safeIncreaseAllowance(vault, amount1);
+
+        vaultTokens = algebraVault.deposit(amount0, amount1, to);
+        require(vaultTokens >= minimumProceeds);
+
+        emit DualDepositForwarded(msg.sender, vault, amount0, amount1, vaultTokens, to);
+    }
+
+    /// @inheritdoc IAlgebraVaultDepositGuard
     function forwardNativeDepositToAlgebraVault(
         address vault,
         address vaultDeployer,
@@ -102,7 +128,11 @@ contract AlgebraVaultDepositGuard is IAlgebraVaultDepositGuard, ReentrancyGuard 
         bool depositNative
     ) private returns (uint256 vaultTokens) {
         _validateRecipient(to);
-        (IAlgebraVault algebraVault, address token0, address token1) = _validateVault(vault, vaultDeployer, depositNative);
+        (IAlgebraVault algebraVault, address token0, address token1) = _validateVault(
+            vault,
+            vaultDeployer,
+            depositNative
+        );
 
         require(token == token0 || token == token1, "Invalid token");
 
@@ -139,7 +169,11 @@ contract AlgebraVaultDepositGuard is IAlgebraVaultDepositGuard, ReentrancyGuard 
         bool withdrawNative
     ) private returns (uint256 amount0, uint256 amount1) {
         _validateRecipient(to);
-        (IAlgebraVault algebraVault, address token0, address token1) = _validateVault(vault, vaultDeployer, withdrawNative);
+        (IAlgebraVault algebraVault, address token0, address token1) = _validateVault(
+            vault,
+            vaultDeployer,
+            withdrawNative
+        );
 
         // - sender must grant the guard an allowance for the vault share token
         // - the guard can then transfer those share tokens to itself
@@ -151,12 +185,12 @@ contract AlgebraVaultDepositGuard is IAlgebraVaultDepositGuard, ReentrancyGuard 
             (amount0, amount1) = algebraVault.withdraw(shares, address(this));
             if (token0 == WRAPPED_NATIVE) {
                 IWRAPPED_NATIVE(WRAPPED_NATIVE).withdraw(amount0);
-                (bool success, ) = payable(to).call{value: amount0}("");
+                (bool success, ) = payable(to).call{ value: amount0 }("");
                 require(success, "ETH transfer failed");
                 IERC20(token1).safeTransfer(to, amount1);
             } else {
                 IWRAPPED_NATIVE(WRAPPED_NATIVE).withdraw(amount1);
-                (bool success, ) = payable(to).call{value: amount1}("");
+                (bool success, ) = payable(to).call{ value: amount1 }("");
                 require(success, "ETH transfer failed");
                 IERC20(token0).safeTransfer(to, amount0);
             }

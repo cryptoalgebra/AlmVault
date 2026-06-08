@@ -1,105 +1,105 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`Gas Snapshots Core Vault Operations collectFees: no positions 1`] = `26777`;
+exports[`Gas Snapshots Core Vault Operations collectFees: no positions 1`] = `26866`;
 
-exports[`Gas Snapshots Core Vault Operations collectFees: with accumulated fees and fee distribution 1`] = `240939`;
+exports[`Gas Snapshots Core Vault Operations collectFees: with accumulated fees and fee distribution 1`] = `240975`;
 
-exports[`Gas Snapshots Core Vault Operations collectFees: with position, no fees 1`] = `127212`;
+exports[`Gas Snapshots Core Vault Operations collectFees: with position, no fees 1`] = `127286`;
 
-exports[`Gas Snapshots Core Vault Operations deposit: first deposit (empty vault) 1`] = `206656`;
+exports[`Gas Snapshots Core Vault Operations deposit: first deposit (empty vault) 1`] = `207125`;
 
-exports[`Gas Snapshots Core Vault Operations deposit: into vault with active position 1`] = `294718`;
+exports[`Gas Snapshots Core Vault Operations deposit: into vault with active position 1`] = `295233`;
 
-exports[`Gas Snapshots Core Vault Operations deposit: second deposit (non-empty vault, no positions) 1`] = `172907`;
+exports[`Gas Snapshots Core Vault Operations deposit: second deposit (non-empty vault, no positions) 1`] = `173376`;
 
-exports[`Gas Snapshots Core Vault Operations getTotalAmounts: no positions 1`] = `35765`;
+exports[`Gas Snapshots Core Vault Operations getTotalAmounts: no positions 1`] = `35854`;
 
-exports[`Gas Snapshots Core Vault Operations getTotalAmounts: with positions 1`] = `100687`;
+exports[`Gas Snapshots Core Vault Operations getTotalAmounts: with positions 1`] = `100898`;
 
-exports[`Gas Snapshots Core Vault Operations rebalance: first rebalance, base + limit positions 1`] = `870059`;
+exports[`Gas Snapshots Core Vault Operations rebalance: first rebalance, base + limit positions 1`] = `868560`;
 
-exports[`Gas Snapshots Core Vault Operations rebalance: first rebalance, base position only (no limit) 1`] = `572106`;
+exports[`Gas Snapshots Core Vault Operations rebalance: first rebalance, base position only (no limit) 1`] = `570623`;
 
-exports[`Gas Snapshots Core Vault Operations rebalance: re-rebalance, 1 pos => 1 pos (no fees) 1`] = `603148`;
+exports[`Gas Snapshots Core Vault Operations rebalance: re-rebalance, 1 pos => 1 pos (no fees) 1`] = `601634`;
 
-exports[`Gas Snapshots Core Vault Operations rebalance: re-rebalance, 1 pos => 1 pos (with fees) 1`] = `661363`;
+exports[`Gas Snapshots Core Vault Operations rebalance: re-rebalance, 1 pos => 1 pos (with fees) 1`] = `659849`;
 
-exports[`Gas Snapshots Core Vault Operations rebalance: re-rebalance, 1 pos => 2 pos (no fees) 1`] = `793104`;
+exports[`Gas Snapshots Core Vault Operations rebalance: re-rebalance, 1 pos => 2 pos (no fees) 1`] = `791575`;
 
-exports[`Gas Snapshots Core Vault Operations rebalance: re-rebalance, 2 pos => 1 pos (no fees) 1`] = `649123`;
+exports[`Gas Snapshots Core Vault Operations rebalance: re-rebalance, 2 pos => 1 pos (no fees) 1`] = `647887`;
 
-exports[`Gas Snapshots Core Vault Operations rebalance: re-rebalance, 2 pos => 2 pos (no fees) 1`] = `840851`;
+exports[`Gas Snapshots Core Vault Operations rebalance: re-rebalance, 2 pos => 2 pos (no fees) 1`] = `839602`;
 
-exports[`Gas Snapshots Core Vault Operations rebalance: re-rebalance, 2 pos => 2 pos (with fees + amm fee + affiliate) 1`] = `947360`;
+exports[`Gas Snapshots Core Vault Operations rebalance: re-rebalance, 2 pos => 2 pos (with fees + amm fee + affiliate) 1`] = `945788`;
 
-exports[`Gas Snapshots Core Vault Operations rebalance: re-rebalance, 2 pos => 2 pos (with fees, no fee split) 1`] = `912544`;
+exports[`Gas Snapshots Core Vault Operations rebalance: re-rebalance, 2 pos => 2 pos (with fees, no fee split) 1`] = `911296`;
 
-exports[`Gas Snapshots Core Vault Operations rebalance: with negative swap (token1 => token0) 1`] = `590106`;
+exports[`Gas Snapshots Core Vault Operations rebalance: with negative swap (token1 => token0) 1`] = `588755`;
 
-exports[`Gas Snapshots Core Vault Operations rebalance: with positive swap (token0 => token1) 1`] = `697017`;
+exports[`Gas Snapshots Core Vault Operations rebalance: with positive swap (token0 => token1) 1`] = `695663`;
 
-exports[`Gas Snapshots Core Vault Operations setAffiliate 1`] = `52502`;
+exports[`Gas Snapshots Core Vault Operations setAffiliate 1`] = `52532`;
 
-exports[`Gas Snapshots Core Vault Operations setAmmFeeRecipient 1`] = `52920`;
+exports[`Gas Snapshots Core Vault Operations setAmmFeeRecipient 1`] = `52994`;
 
-exports[`Gas Snapshots Core Vault Operations setAuxTwapPeriod 1`] = `32454`;
+exports[`Gas Snapshots Core Vault Operations setAuxTwapPeriod 1`] = `32529`;
 
-exports[`Gas Snapshots Core Vault Operations setDepositMax 1`] = `40330`;
+exports[`Gas Snapshots Core Vault Operations setDepositMax 1`] = `40453`;
 
-exports[`Gas Snapshots Core Vault Operations setHysteresis 1`] = `35353`;
+exports[`Gas Snapshots Core Vault Operations setHysteresis 1`] = `35425`;
 
-exports[`Gas Snapshots Core Vault Operations setRebalanceManager 1`] = `53069`;
+exports[`Gas Snapshots Core Vault Operations setRebalanceManager 1`] = `53131`;
 
-exports[`Gas Snapshots Core Vault Operations setTwapPeriod 1`] = `36021`;
+exports[`Gas Snapshots Core Vault Operations setTwapPeriod 1`] = `36101`;
 
-exports[`Gas Snapshots Core Vault Operations withdraw: full withdraw (no positions) 1`] = `63674`;
+exports[`Gas Snapshots Core Vault Operations withdraw: full withdraw (no positions) 1`] = `63732`;
 
-exports[`Gas Snapshots Core Vault Operations withdraw: full withdraw (with position, no fees) 1`] = `280041`;
+exports[`Gas Snapshots Core Vault Operations withdraw: full withdraw (with position, no fees) 1`] = `280072`;
 
-exports[`Gas Snapshots Core Vault Operations withdraw: partial withdraw (no positions) 1`] = `76846`;
+exports[`Gas Snapshots Core Vault Operations withdraw: partial withdraw (no positions) 1`] = `76919`;
 
-exports[`Gas Snapshots Core Vault Operations withdraw: partial withdraw (with position, no fees) 1`] = `283623`;
+exports[`Gas Snapshots Core Vault Operations withdraw: partial withdraw (with position, no fees) 1`] = `283660`;
 
-exports[`Gas Snapshots Core Vault Operations withdraw: with accumulated fees 1`] = `353563`;
+exports[`Gas Snapshots Core Vault Operations withdraw: with accumulated fees 1`] = `353572`;
 
-exports[`Gas Snapshots Factory Operations createAlgebraVault 1`] = `5362714`;
+exports[`Gas Snapshots Factory Operations createAlgebraVault 1`] = `5776860`;
 
-exports[`Gas Snapshots Factory Operations setAmmFee 1`] = `49599`;
+exports[`Gas Snapshots Factory Operations setAmmFee 1`] = `49587`;
 
-exports[`Gas Snapshots Factory Operations setBaseFee 1`] = `32447`;
+exports[`Gas Snapshots Factory Operations setBaseFee 1`] = `32433`;
 
-exports[`Gas Snapshots Factory Operations setBaseFeeSplit 1`] = `30418`;
+exports[`Gas Snapshots Factory Operations setBaseFeeSplit 1`] = `30404`;
 
-exports[`Gas Snapshots Factory Operations setFeeRecipient 1`] = `30946`;
+exports[`Gas Snapshots Factory Operations setFeeRecipient 1`] = `30932`;
 
-exports[`Gas Snapshots Farming Integration collectFees: with farming positions + fees 1`] = `501854`;
+exports[`Gas Snapshots Farming Integration collectFees: with farming positions + fees 1`] = `501866`;
 
-exports[`Gas Snapshots Farming Integration collectRewards: from farmed positions 1`] = `270681`;
+exports[`Gas Snapshots Farming Integration collectRewards: from farmed positions 1`] = `270733`;
 
-exports[`Gas Snapshots Farming Integration deposit: into vault with farming positions + fees 1`] = `681598`;
+exports[`Gas Snapshots Farming Integration deposit: into vault with farming positions + fees 1`] = `682112`;
 
-exports[`Gas Snapshots Farming Integration rebalance: enters farming (base + limit) 1`] = `1589404`;
+exports[`Gas Snapshots Farming Integration rebalance: enters farming (base + limit) 1`] = `1587859`;
 
-exports[`Gas Snapshots Farming Integration rebalance: full (farming + swap + fees + amm fee + affiliate) 1`] = `1697021`;
+exports[`Gas Snapshots Farming Integration rebalance: full (farming + swap + fees + amm fee + affiliate) 1`] = `1695547`;
 
-exports[`Gas Snapshots Farming Integration rebalance: re-rebalance with farming, 1 pos => 2 pos (with fees) 1`] = `1555269`;
+exports[`Gas Snapshots Farming Integration rebalance: re-rebalance with farming, 1 pos => 2 pos (with fees) 1`] = `1553714`;
 
-exports[`Gas Snapshots Farming Integration rebalance: re-rebalance with farming, 2 pos => 1 pos (with fees) 1`] = `1249315`;
+exports[`Gas Snapshots Farming Integration rebalance: re-rebalance with farming, 2 pos => 1 pos (with fees) 1`] = `1248058`;
 
-exports[`Gas Snapshots Farming Integration rebalance: re-rebalance with farming, 2 pos => 2 pos (no fees) 1`] = `1479123`;
+exports[`Gas Snapshots Farming Integration rebalance: re-rebalance with farming, 2 pos => 2 pos (no fees) 1`] = `1477850`;
 
-exports[`Gas Snapshots Farming Integration rebalance: re-rebalance with farming, 2 pos => 2 pos (with fees) 1`] = `1518977`;
+exports[`Gas Snapshots Farming Integration rebalance: re-rebalance with farming, 2 pos => 2 pos (with fees) 1`] = `1517704`;
 
-exports[`Gas Snapshots Farming Integration withdraw: with farming + fees 1`] = `857399`;
+exports[`Gas Snapshots Farming Integration withdraw: with farming + fees 1`] = `857365`;
 
-exports[`Gas Snapshots Farming Integration withdraw: with farming positions 1`] = `764522`;
+exports[`Gas Snapshots Farming Integration withdraw: with farming positions 1`] = `764511`;
 
-exports[`Gas Snapshots FarmingRewardsDistributor getAllRewards 1`] = `180586`;
+exports[`Gas Snapshots FarmingRewardsDistributor getAllRewards 1`] = `180663`;
 
-exports[`Gas Snapshots FarmingRewardsDistributor stake: first stake 1`] = `243406`;
+exports[`Gas Snapshots FarmingRewardsDistributor stake: first stake 1`] = `243569`;
 
-exports[`Gas Snapshots FarmingRewardsDistributor stake: second stake (different user) 1`] = `227872`;
+exports[`Gas Snapshots FarmingRewardsDistributor stake: second stake (different user) 1`] = `228035`;
 
-exports[`Gas Snapshots FarmingRewardsDistributor unstake: full unstake 1`] = `269450`;
+exports[`Gas Snapshots FarmingRewardsDistributor unstake: full unstake 1`] = `269692`;
 
-exports[`Gas Snapshots FarmingRewardsDistributor updateReward: update after rewards collected 1`] = `186930`;
+exports[`Gas Snapshots FarmingRewardsDistributor updateReward: update after rewards collected 1`] = `187007`;

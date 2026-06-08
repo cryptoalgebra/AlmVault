@@ -13,6 +13,8 @@ interface IAlgebraVault {
     error IdenticalPositions();
     error InvalidPosition();
     error AlgebraDisconnectedPlugin();
+    error NonZeroLiquidity();
+    error TargetPriceNotReached();
 
     function algebraVaultFactory() external view returns (address);
 
@@ -30,7 +32,7 @@ interface IAlgebraVault {
 
     function tickSpacing() external view returns (int24);
 
-    function ammFeeRecipient() external view returns(address);
+    function ammFeeRecipient() external view returns (address);
 
     function affiliate() external view returns (address);
 
@@ -80,6 +82,16 @@ interface IAlgebraVault {
         int24 _limitLower,
         int24 _limitUpper,
         int256 swapQuantity
+    ) external;
+
+    function rebalanceToExternalPrice(
+        int24 _baseLower,
+        int24 _baseUpper,
+        int24 _limitLower,
+        int24 _limitUpper,
+        uint160 targetSqrtPriceX96,
+        address swapPayer,
+        uint256 maxSwapInput
     ) external;
 
     function collectFees() external returns (uint256 fees0, uint256 fees1);
